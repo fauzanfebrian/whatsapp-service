@@ -1,6 +1,6 @@
 # whatsapp-service
 
-Send whatsapp message via node.js for freee.
+Send whatsapp message via node.js for free.
 
 this service use baileys as core package
 
