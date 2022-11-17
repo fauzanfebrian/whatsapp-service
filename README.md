@@ -2,13 +2,13 @@
 
 Send whatsapp message via node.js for free.
 
-this service use <a href="https://github.com/adiwajshing/Baileys" target="_blank">Baileys</a> as core package
+This service use <a href="https://github.com/adiwajshing/Baileys" target="_blank">Baileys</a> as core package
 
 ## How to use
 
--   Start the server then **GET** /qr-code to get the qr for whatsapp connection
--   Open your whatsapp on your mobile phone then scan the qr that you got
--   Now you can send whatsapp message via **POST** /message
+1. Start the server then **GET** /qr-code to get the qr for whatsapp connection
+2. Open your whatsapp on your mobile phone then scan the qr that you got
+3. Now you can send whatsapp message via **POST** /message
 
 ## Routes
 
