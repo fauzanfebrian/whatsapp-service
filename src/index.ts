@@ -30,7 +30,7 @@ app.post('/message', async (req, res) => {
 
         const data = await whatsapp.sendMessage(body)
 
-        return res.json(data)
+        return res.json({ status: 'success', data })
     } catch (error) {
         console.error(error)
 
@@ -56,7 +56,7 @@ app.delete('/logout', async (_req, res) => {
     try {
         const data = await whatsapp.logout()
 
-        return res.json(data)
+        return res.json({ message: 'success', data })
     } catch (error) {
         console.error(error)
 
