@@ -1,6 +1,6 @@
-import e, { NextFunction, Request, Response } from 'express'
+import { NextFunction, Request, Response } from 'express'
 import { ValidationError } from 'joi'
-import { MulterError, ErrorCode } from 'multer'
+import { ErrorCode, MulterError } from 'multer'
 
 function translateMulterError(errorCode: ErrorCode) {
     let httpStatus: number
