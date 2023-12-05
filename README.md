@@ -2,7 +2,7 @@
 
 Send whatsapp message via node.js for free.
 
-This service use <a href="https://github.com/adiwajshing/Baileys" target="_blank">Baileys</a> as core package
+This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_blank">Baileys</a> as core package
 
 ## How to use
 
