@@ -27,7 +27,7 @@ This service use <a href="https://github.com/adiwajshing/Baileys" target="_blank
 #### **Body:**
 
 ```
-    phone_number : string | required
+    phoneNumber : string | required
     message      : string | required
 ```
 
