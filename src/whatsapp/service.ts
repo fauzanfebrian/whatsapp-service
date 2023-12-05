@@ -151,7 +151,7 @@ export class WhatsappService {
 
     async convertAndSendSticker(message: proto.IWebMessageInfo) {
         if (
-            !message?.message?.imageMessage?.caption?.includes('#make_to_sticker') ||
+            !message?.message?.imageMessage?.caption?.includes('#convert_to_sticker') ||
             !message?.key?.remoteJid?.includes('@s.whatsapp.net')
         ) {
             return false
