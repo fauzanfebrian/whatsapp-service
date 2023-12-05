@@ -96,7 +96,7 @@ export class WhatsappService {
             this.checkIsConnected()
 
             // create 1 minute timeout for whatsapp send message
-            await promiseTimeout(60000, async (resolve, reject) => {
+            await promiseTimeout(1000 * 15, async (resolve, reject) => {
                 try {
                     const jid = this.formatToWhatsappJid(phoneNumber)
                     await this.socket.presenceSubscribe(jid)
@@ -145,15 +145,30 @@ export class WhatsappService {
         return socket
     }
 
-    private onNewMessage(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
-        return Promise.all(chats?.messages?.map(message => this.convertAndSendSticker(message)))
+    private async onNewMessage(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
+        try {
+            return await Promise.all(chats?.messages?.map(message => this.convertAndSendSticker(message)))
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
+    private extractJidFromMessage(message: proto.IWebMessageInfo): string {
+        if (message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
+            return message.key.remoteJid
+        }
+        return ''
+    }
+
+    private shouldConvertSticker(message: proto.IWebMessageInfo): boolean {
+        const captions = ['#convert_to_sticker', 'convert to sticker', '#sticker']
+        const caption = message?.message?.imageMessage?.caption?.toLowerCase()
+
+        return captions.includes(caption) && !!this.extractJidFromMessage(message)
     }
 
     async convertAndSendSticker(message: proto.IWebMessageInfo) {
-        if (
-            !message?.message?.imageMessage?.caption?.includes('#convert_to_sticker') ||
-            !message?.key?.remoteJid?.includes('@s.whatsapp.net')
-        ) {
+        if (!this.shouldConvertSticker(message)) {
             return false
         }
 
@@ -166,8 +181,10 @@ export class WhatsappService {
         })
         const buffer = await sticker.toMessage()
 
-        console.log(`Sending sticker to ${this.formatToIndonesian(message.key.remoteJid)}`)
-        return this.sendMessage(message.key.remoteJid, buffer)
+        const id = this.extractJidFromMessage(message)
+
+        console.log(`Sending sticker to ${id}`)
+        return this.sendMessage(id, buffer)
     }
 
     private async onConnectionUpdate(
