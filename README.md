@@ -20,17 +20,6 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
 
 > Get the qr png for whatsapp connection
 
-### **POST** /message
-
-> Send message to the specified phone number
-
-#### **Body:**
-
-```
-    phoneNumber : string | required
-    message      : string | required
-```
-
 ### **DELETE** /logout
 
 > Logout from the connected device
