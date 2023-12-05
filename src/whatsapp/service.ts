@@ -3,10 +3,13 @@ import makeWASocket, {
     AuthenticationState,
     ConnectionState,
     Contact,
-    delay,
     DisconnectReason,
+    MessageUpsertType,
+    delay,
+    downloadMediaMessage,
     fetchLatestBaileysVersion,
     promiseTimeout,
+    proto,
     useMultiFileAuthState,
 } from '@whiskeysockets/baileys'
 import fs from 'fs'
@@ -15,6 +18,7 @@ import pino from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from './dto/message.dto'
 import { StatusWhatsappService, WhatsappError, WhatsappSocket } from './interface'
+import sharp from 'sharp'
 
 export class WhatsappService {
     private session_directory = 'sessions'
@@ -137,8 +141,32 @@ export class WhatsappService {
         // listener
         socket.ev.on('connection.update', update => this.onConnectionUpdate(socket, state, update))
         socket.ev.on('creds.update', saveCreds)
+        socket.ev.on('messages.upsert', chats => this.convertImageToSticker(chats))
 
         return socket
+    }
+
+    private async convertImageToSticker(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
+        const toStickerImageMessage = chats.messages.find(message => {
+            return (
+                message?.message?.imageMessage?.caption?.includes('#make_to_sticker') &&
+                message?.key?.remoteJid?.includes('@s.whatsapp.net')
+            )
+        })
+
+        if (!toStickerImageMessage) return
+
+        const image = await downloadMediaMessage(toStickerImageMessage, 'buffer', {})
+        console.log('Resize', image)
+        const resizedImage = await sharp(image as Buffer)
+            .resize(512, 512)
+            .toBuffer()
+
+        await this.sendMessage(toStickerImageMessage.key.remoteJid, {
+            // image: Buffer.from(toStickerImageMessage.message.imageMessage.jpegThumbnail),
+            sticker: resizedImage,
+            isAnimated: false,
+        })
     }
 
     private async onConnectionUpdate(

@@ -1,7 +1,6 @@
 import { Handler } from 'express'
 import QRCode from 'qrcode'
 import { joiValidate } from 'src/util/validator'
-import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from './dto/message.dto'
 import whatsappService from './service'
 import { sendContactValidator, sendFileValidator, sendLocationValidator, sendTextValidator } from './validator/message'
 
@@ -49,7 +48,7 @@ export const logout: Handler = async (_req, res, next) => {
 
 export const sendText: Handler = async (req, res, next) => {
     try {
-        const dto = await joiValidate<SendTextDto>(sendTextValidator, req.body)
+        const dto = await joiValidate(sendTextValidator, req.body)
 
         const data = await whatsappService.sendText(dto)
 
@@ -61,7 +60,7 @@ export const sendText: Handler = async (req, res, next) => {
 
 export const sendContact: Handler = async (req, res, next) => {
     try {
-        const dto = await joiValidate<SendContactDto>(sendContactValidator, req.body)
+        const dto = await joiValidate(sendContactValidator, req.body)
 
         const data = await whatsappService.sendContact(dto)
 
@@ -73,7 +72,7 @@ export const sendContact: Handler = async (req, res, next) => {
 
 export const sendLocation: Handler = async (req, res, next) => {
     try {
-        const dto = await joiValidate<SendLocationDto>(sendLocationValidator, req.body)
+        const dto = await joiValidate(sendLocationValidator, req.body)
 
         const data = await whatsappService.sendLocation(dto)
 
@@ -87,7 +86,7 @@ export const sendImage: Handler = async (req, res, next) => {
     try {
         const file: (typeof req)['file'] = req.files['file']?.[0]
 
-        const dto = await joiValidate<SendFileDto>(sendFileValidator, {
+        const dto = await joiValidate(sendFileValidator, {
             file: file?.buffer,
             fileName: file?.originalname,
             mimetype: file?.mimetype,
