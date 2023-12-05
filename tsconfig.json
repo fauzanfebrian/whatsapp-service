@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "declaration": true,
+        "declaration": false,
         "removeComments": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
@@ -17,7 +17,7 @@
         "strictBindCallApply": false,
         "forceConsistentCasingInFileNames": false,
         "noFallthroughCasesInSwitch": false,
-        "moduleResolution": "Node"
+        "esModuleInterop": true
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]

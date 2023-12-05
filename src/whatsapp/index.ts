@@ -1,26 +1,27 @@
 import makeWASocket, {
+    AuthenticationState,
+    ConnectionState,
     Contact,
     delay,
     DisconnectReason,
     fetchLatestBaileysVersion,
     promiseTimeout,
     useMultiFileAuthState,
-} from '@adiwajshing/baileys'
-import * as fs from 'fs'
-import * as path from 'path'
+} from '@whiskeysockets/baileys'
+import fs from 'fs'
+import path from 'path'
 import pino from 'pino'
 import { SendMessageDto } from './dto/send-message.dto'
-import { WhatsappError, WhatsappSocket } from './interface'
+import { StatusWhatsappService, WhatsappError, WhatsappSocket } from './interface'
+import QRCodeTerminal from 'qrcode-terminal'
 
 export class WhatsappService {
-    private session_directory = 'whatsapp_session'
+    private session_directory = 'sessions'
     private contactConnected: Contact
     private socket: WhatsappSocket
     private qrcode: string
 
-    constructor(private serviceName = 'Whatsapp Service', private serviceVersion = '0.0.1') {
-        this.init()
-    }
+    constructor(private serviceName = 'Whatsapp Service', private serviceVersion = '0.0.1') {}
 
     async init() {
         if (this.socket) return
@@ -29,14 +30,12 @@ export class WhatsappService {
 
     async sendMessage(dto: SendMessageDto, recursive?: number): Promise<boolean> {
         try {
-            const status = this.getStatus()
-
-            if (!status.isConnected) throw new WhatsappError('Whatsapp not connected yet')
+            this.checkIsConnected()
 
             // create 1 minute timeout for whatsapp send message
             await promiseTimeout(60000, async (resolve, reject) => {
                 try {
-                    const jid = this.formatToWhatsappJid(dto.phone_number)
+                    const jid = this.formatToWhatsappJid(dto.phoneNumber)
                     await this.socket.presenceSubscribe(jid)
                     await delay(3)
                     await this.socket.sendPresenceUpdate('composing', jid)
@@ -52,17 +51,8 @@ export class WhatsappService {
 
             return true
         } catch (error) {
-            const payload = error?.output?.payload
-
-            // is can reload or not
-            const reload =
-                error === 1006 ||
-                (payload?.statusCode === 428 &&
-                    payload?.error === 'Precondition Required' &&
-                    payload?.message === 'Connection Closed')
-
             // check if can reload and the recursive not at maximum
-            if (reload && (recursive || 0) < 20) {
+            if (this.isShouldResend(error) && (recursive || 0) < 20) {
                 await delay(500)
                 return await this.sendMessage(dto, (recursive || 0) + 1)
             }
@@ -71,22 +61,8 @@ export class WhatsappService {
         }
     }
 
-    getStatus(): {
-        isConnected: boolean
-        contactConnected?: Contact | undefined
-        qrcode?: string | undefined
-    } {
-        return {
-            isConnected: !this.qrcode && !!this.contactConnected?.id,
-            contactConnected: this.contactConnected,
-            qrcode: this.qrcode,
-        }
-    }
-
     async logout() {
-        const status = this.getStatus()
-
-        if (!status.isConnected) throw new WhatsappError('Whatsapp not connected yet')
+        this.checkIsConnected()
 
         await this.socket.logout()
 
@@ -98,7 +74,15 @@ export class WhatsappService {
         return true
     }
 
-    private async createNewSocket() {
+    getStatus(): StatusWhatsappService {
+        return {
+            isConnected: !this.qrcode && !!this.contactConnected?.id,
+            contactConnected: this.contactConnected,
+            qrcode: this.qrcode,
+        }
+    }
+
+    private async createNewSocket(): Promise<WhatsappSocket> {
         const { state, saveCreds } = await useMultiFileAuthState(this.session_directory)
         const { version } = await fetchLatestBaileysVersion()
 
@@ -109,35 +93,55 @@ export class WhatsappService {
             defaultQueryTimeoutMs: undefined,
             qrTimeout: 1000 * 60 * 60 * 24,
             browser: [this.serviceName, 'Desktop', this.serviceVersion],
+            markOnlineOnConnect: false,
         })
 
-        // autoreconnect
-        socket.ev.on('connection.update', async update => {
-            const { connection, lastDisconnect, qr } = update
-
-            if (connection == 'close') {
-                const statusCode = (lastDisconnect?.error as any)?.output.statusCode
-
-                if (statusCode === DisconnectReason.loggedOut) {
-                    this.removeSession()
-                    delete this.contactConnected
-                    this.socket = await this.createNewSocket()
-                }
-
-                if (statusCode !== DisconnectReason.loggedOut) this.socket = await this.createNewSocket()
-            } else if (connection === 'open') {
-                // saat connection open, ambil nomor hp yang sedang terkoneksi
-                this.contactConnected = { ...state.creds.me }
-                this.contactConnected.id = this.formatToIndonesian(this.contactConnected?.id)
-                delete this.qrcode
-            }
-
-            if (qr) this.qrcode = qr
-        })
-
+        // listener
+        socket.ev.on('connection.update', update => this.onConnectionUpdate(socket, state, update))
         socket.ev.on('creds.update', saveCreds)
 
         return socket
+    }
+
+    private async onConnectionUpdate(
+        socket: WhatsappSocket,
+        state: AuthenticationState,
+        update: Partial<ConnectionState>
+    ): Promise<void> {
+        const { connection, lastDisconnect } = update
+
+        this.qrcode = update.qr
+        if (update.qr && process.env.QR_TERMINAL === 'true') {
+            console.log('\n')
+            QRCodeTerminal.generate(update.qr, { small: true })
+            console.log('Scan QRCode to connect your whatsapp\n')
+        }
+
+        if (connection === 'close') {
+            const statusCode = (lastDisconnect?.error as any)?.output?.statusCode
+
+            if (statusCode === DisconnectReason.loggedOut) {
+                this.removeSession()
+                delete this.contactConnected
+
+                console.log('Whatsapp logged out')
+            }
+
+            this.socket = await this.createNewSocket()
+            return
+        }
+
+        if (connection === 'open') {
+            const user = { ...state.creds.me }
+            user.id = this.formatToIndonesian(user?.id)
+
+            this.contactConnected = user
+            await socket.sendPresenceUpdate('unavailable')
+            delete this.qrcode
+
+            console.log(`Whatsapp connected to ${user.id}`)
+            return
+        }
     }
 
     private formatToIndonesian(number: string) {
@@ -175,6 +179,32 @@ export class WhatsappService {
     }
 
     private removeSession() {
-        fs.rmSync(path.resolve(process.cwd(), this.session_directory), { recursive: true, force: true })
+        try {
+            fs.rmSync(path.resolve(process.cwd(), this.session_directory), { recursive: true, force: true })
+        } catch {}
+    }
+
+    private checkIsConnected() {
+        const status = this.getStatus()
+
+        if (!status.isConnected) throw new WhatsappError('Whatsapp not connected yet')
+    }
+
+    private isShouldResend(error: any): boolean {
+        if (error === 1006) return true
+
+        const payload = error?.output?.payload
+
+        if (!payload) return false
+
+        return (
+            payload.statusCode === 428 &&
+            payload.error === 'Precondition Required' &&
+            payload.message === 'Connection Closed'
+        )
     }
 }
+
+const whatsapp = new WhatsappService()
+
+export default whatsapp
