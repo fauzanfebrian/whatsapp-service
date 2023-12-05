@@ -14,11 +14,11 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys'
 import fs from 'fs'
 import path from 'path'
-import pino from 'pino'
+import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
+import { Sticker } from 'wa-sticker-formatter'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from './dto/message.dto'
 import { StatusWhatsappService, WhatsappError, WhatsappSocket } from './interface'
-import sharp from 'sharp'
 
 export class WhatsappService {
     private session_directory = 'sessions'
@@ -131,7 +131,7 @@ export class WhatsappService {
         const socket = makeWASocket({
             version: version,
             auth: state,
-            logger: pino({ enabled: false }),
+            logger: pino({ enabled: false }) as any,
             defaultQueryTimeoutMs: undefined,
             qrTimeout: 1000 * 60 * 60 * 24,
             browser: [this.serviceName, 'Desktop', this.serviceVersion],
@@ -141,32 +141,33 @@ export class WhatsappService {
         // listener
         socket.ev.on('connection.update', update => this.onConnectionUpdate(socket, state, update))
         socket.ev.on('creds.update', saveCreds)
-        socket.ev.on('messages.upsert', chats => this.convertImageToSticker(chats))
 
         return socket
     }
 
-    private async convertImageToSticker(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
-        const toStickerImageMessage = chats.messages.find(message => {
-            return (
-                message?.message?.imageMessage?.caption?.includes('#make_to_sticker') &&
-                message?.key?.remoteJid?.includes('@s.whatsapp.net')
-            )
+    private onNewMessage(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
+        return Promise.all(chats?.messages?.map(message => this.convertAndSendSticker(message)))
+    }
+
+    async convertAndSendSticker(message: proto.IWebMessageInfo) {
+        if (
+            !message?.message?.imageMessage?.caption?.includes('#make_to_sticker') ||
+            !message?.key?.remoteJid?.includes('@s.whatsapp.net')
+        ) {
+            return false
+        }
+
+        const image = await downloadMediaMessage(message, 'buffer', {})
+
+        const sticker = new Sticker(image as Buffer, {
+            quality: 50,
+            type: 'crop',
+            author: this.serviceName,
         })
+        const buffer = await sticker.toMessage()
 
-        if (!toStickerImageMessage) return
-
-        const image = await downloadMediaMessage(toStickerImageMessage, 'buffer', {})
-        console.log('Resize', image)
-        const resizedImage = await sharp(image as Buffer)
-            .resize(512, 512)
-            .toBuffer()
-
-        await this.sendMessage(toStickerImageMessage.key.remoteJid, {
-            // image: Buffer.from(toStickerImageMessage.message.imageMessage.jpegThumbnail),
-            sticker: resizedImage,
-            isAnimated: false,
-        })
+        console.log(`Sending sticker to ${this.formatToIndonesian(message.key.remoteJid)}`)
+        return this.sendMessage(message.key.remoteJid, buffer)
     }
 
     private async onConnectionUpdate(
@@ -204,6 +205,9 @@ export class WhatsappService {
             this.contactConnected = user
             await socket.sendPresenceUpdate('unavailable')
             delete this.qrcode
+
+            socket.ev.removeAllListeners('messages.upsert')
+            socket.ev.on('messages.upsert', chats => this.onNewMessage(chats))
 
             console.log(`Whatsapp connected to ${user.id}`)
             return
@@ -271,6 +275,6 @@ export class WhatsappService {
     }
 }
 
-const whatsappService = new WhatsappService()
+const whatsappService = new WhatsappService(process.env.APPLICATION_NAME, process.env.APPLICATION_VERSION)
 
 export default whatsappService
