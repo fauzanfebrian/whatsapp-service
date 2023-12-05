@@ -1,4 +1,5 @@
 import makeWASocket, {
+    AnyMessageContent,
     AuthenticationState,
     ConnectionState,
     Contact,
@@ -11,9 +12,9 @@ import makeWASocket, {
 import fs from 'fs'
 import path from 'path'
 import pino from 'pino'
-import { SendMessageDto } from './dto/send-message.dto'
-import { StatusWhatsappService, WhatsappError, WhatsappSocket } from './interface'
 import QRCodeTerminal from 'qrcode-terminal'
+import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from './dto/message.dto'
+import { StatusWhatsappService, WhatsappError, WhatsappSocket } from './interface'
 
 export class WhatsappService {
     private session_directory = 'sessions'
@@ -28,37 +29,41 @@ export class WhatsappService {
         this.socket = await this.createNewSocket()
     }
 
-    async sendMessage(dto: SendMessageDto, recursive?: number): Promise<boolean> {
-        try {
-            this.checkIsConnected()
+    async sendText(dto: SendTextDto) {
+        return this.sendMessage(dto.sendTo, { text: dto.message })
+    }
 
-            // create 1 minute timeout for whatsapp send message
-            await promiseTimeout(60000, async (resolve, reject) => {
-                try {
-                    const jid = this.formatToWhatsappJid(dto.phoneNumber)
-                    await this.socket.presenceSubscribe(jid)
-                    await delay(3)
-                    await this.socket.sendPresenceUpdate('composing', jid)
-                    await delay(3)
-                    await this.socket.sendPresenceUpdate('paused', jid)
-                    await delay(3)
-                    await this.socket.sendMessage(jid, { text: dto.message })
-                    resolve(true)
-                } catch (error) {
-                    reject(error)
-                }
-            })
+    async sendContact(dto: SendContactDto) {
+        const waid = this.formatToWhatsappJid(dto.phoneNumber).replace('@s.whatsapp.net', '')
 
-            return true
-        } catch (error) {
-            // check if can reload and the recursive not at maximum
-            if (this.isShouldResend(error) && (recursive || 0) < 20) {
-                await delay(500)
-                return await this.sendMessage(dto, (recursive || 0) + 1)
-            }
+        const vcard =
+            'BEGIN:VCARD\n' +
+            'VERSION:3.0\n' +
+            `FN:${dto.name}\n` +
+            `TEL;type=CELL;type=VOICE;waid=${waid}:${dto.phoneNumber}\n` +
+            'END:VCARD'
 
-            throw error
-        }
+        return this.sendMessage(dto.sendTo, {
+            contacts: {
+                displayName: dto.name,
+                contacts: [{ vcard }],
+            },
+        })
+    }
+
+    async sendLocation(dto: SendLocationDto) {
+        return this.sendMessage(dto.sendTo, {
+            location: { degreesLatitude: dto.lat, degreesLongitude: dto.long },
+        })
+    }
+
+    async sendFile(dto: SendFileDto) {
+        return this.sendMessage(dto.sendTo, {
+            document: dto.file,
+            caption: dto.caption,
+            fileName: dto.fileName,
+            mimetype: dto.mimetype,
+        })
     }
 
     async logout() {
@@ -79,6 +84,39 @@ export class WhatsappService {
             isConnected: !this.qrcode && !!this.contactConnected?.id,
             contactConnected: this.contactConnected,
             qrcode: this.qrcode,
+        }
+    }
+
+    private async sendMessage(phoneNumber: string, content: AnyMessageContent, recursive?: number): Promise<boolean> {
+        try {
+            this.checkIsConnected()
+
+            // create 1 minute timeout for whatsapp send message
+            await promiseTimeout(60000, async (resolve, reject) => {
+                try {
+                    const jid = this.formatToWhatsappJid(phoneNumber)
+                    await this.socket.presenceSubscribe(jid)
+                    await delay(3)
+                    await this.socket.sendPresenceUpdate('composing', jid)
+                    await delay(3)
+                    await this.socket.sendPresenceUpdate('paused', jid)
+                    await delay(3)
+                    await this.socket.sendMessage(jid, content)
+                    resolve(true)
+                } catch (error) {
+                    reject(error)
+                }
+            })
+
+            return true
+        } catch (error) {
+            // check if can reload and the recursive not at maximum
+            if (this.isShouldResend(error) && (recursive || 0) < 20) {
+                await delay(500)
+                return await this.sendMessage(phoneNumber, content, (recursive || 0) + 1)
+            }
+
+            throw error
         }
     }
 
@@ -205,6 +243,6 @@ export class WhatsappService {
     }
 }
 
-const whatsapp = new WhatsappService()
+const whatsappService = new WhatsappService()
 
-export default whatsapp
+export default whatsappService

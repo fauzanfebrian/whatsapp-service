@@ -1,8 +1,8 @@
 import app from './app'
-import whatsapp from './whatsapp'
+import whatsappService from './whatsapp/service'
 
 async function bootstrap() {
-    await whatsapp.init()
+    await whatsappService.init()
 
     const port = process.env.PORT || 5000
 
