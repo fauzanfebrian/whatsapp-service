@@ -1,4 +1,4 @@
-import makeWASocket, { Contact, proto } from '@whiskeysockets/baileys'
+import makeWASocket, { AuthenticationState, Contact, proto } from '@whiskeysockets/baileys'
 
 export interface WhatsappSocket extends ReturnType<typeof makeWASocket> {}
 
@@ -16,4 +16,9 @@ export interface StatusWhatsappService {
 
 export interface WhatsappMessage extends proto.IWebMessageInfo {
     sendToJid?: string
+}
+
+export interface AuthState {
+    state: AuthenticationState
+    saveCreds: () => Promise<void>
 }
