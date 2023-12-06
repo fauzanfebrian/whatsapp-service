@@ -1,3 +1,4 @@
+import { AuthenticationCreds } from '@whiskeysockets/baileys'
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 
 @Entity({ name: 'credentials' })
@@ -6,7 +7,7 @@ export class AuthCredential {
     id: number
 
     @Column({ nullable: true, type: 'json' })
-    value: any
+    value: AuthenticationCreds
 
     @Column({ default: false })
     active: boolean

@@ -2,6 +2,7 @@ import datasource from 'src/db/datasource'
 import { Repository } from 'typeorm'
 import { AuthCredential } from './entities/credential'
 import { AuthState } from './entities/state'
+import { Session } from './interface'
 
 export class AuthService {
     private credentialRepository: Repository<AuthCredential>
@@ -73,6 +74,23 @@ export class AuthService {
                 key,
             })
         } catch {}
+    }
+
+    async getSessions(): Promise<Session[]> {
+        const sessions = await this.credentialRepository.find()
+
+        return sessions.map(this.buildSession)
+    }
+
+    private buildSession(credential: AuthCredential): Session {
+        return {
+            id: credential.id,
+            active: credential.active,
+            createdAt: credential.createdAt,
+            updatedAt: credential.updatedAt,
+            user: credential.value.me,
+            platform: credential.value.platform,
+        }
     }
 }
 

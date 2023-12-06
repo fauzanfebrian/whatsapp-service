@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { ValidationError } from 'joi'
 import { ErrorCode, MulterError } from 'multer'
+import { HttpStatus } from './http-status'
 
 function translateMulterError(errorCode: ErrorCode) {
     let httpStatus: number
@@ -39,20 +40,19 @@ function translateMulterError(errorCode: ErrorCode) {
 
 export const errorHandler = (error: Error, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof ValidationError) {
-        return res.status(400).json({ status: 'error', message: error.message, error: error.details })
+        return res.status(HttpStatus.BadRequest).json({ data: error.message, error: error.details })
     }
 
     if (error instanceof MulterError) {
         const customError = translateMulterError(error.code)
 
-        if (customError.httpStatus !== 500) {
-            return res.status(customError.httpStatus).json({ status: 'error', message: customError.message })
+        if (customError.httpStatus !== HttpStatus.InternalServerError) {
+            return res.status(customError.httpStatus).json({ data: customError.message })
         }
     }
 
-    return res.status(500).json({
-        status: 'error',
-        message: 'internal server error',
+    return res.status(HttpStatus.InternalServerError).json({
+        data: 'internal server error',
         error: {
             ...error,
             message: error.message,
