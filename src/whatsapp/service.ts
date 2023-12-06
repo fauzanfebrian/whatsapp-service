@@ -208,6 +208,7 @@ export class WhatsappService {
 
             if (caption.includes('dest:sender')) {
                 message.sendToJid = quoMessage.participant
+                caption = caption.replace('dest:sender', '')
             }
 
             delete message.message.extendedTextMessage
