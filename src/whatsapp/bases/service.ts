@@ -11,8 +11,6 @@ import makeWASocket, {
     fetchLatestBaileysVersion,
     promiseTimeout,
 } from '@whiskeysockets/baileys'
-import fs from 'fs'
-import path from 'path'
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL, STICKER_PASSWORD } from 'src/config/config'
@@ -202,26 +200,48 @@ export abstract class WhatsappBaseService {
     protected shouldConvertSticker(message: WhatsappMessage): boolean {
         let caption = (message?.message?.imageMessage?.caption || '').toLowerCase().trim()
 
-        const quoMessage = message?.message?.extendedTextMessage?.contextInfo
-        if (!!quoMessage?.quotedMessage?.imageMessage) {
-            caption = message.message.extendedTextMessage.text.toLowerCase().trim()
-            message.message.imageMessage = quoMessage.quotedMessage.imageMessage
-
-            if (caption.includes('dest:sender')) {
-                message.sendToJid = quoMessage.participant
-                caption = caption.replace('dest:sender', '')
-            }
-
-            delete message.message.extendedTextMessage
+        const quotedCaption = this.checkQuotedMessage(message)
+        if (quotedCaption) {
+            caption = quotedCaption
         }
 
         const captionNeeded = '#convert_sticker'
-        if (!caption.startsWith(captionNeeded)) return false
+        if (!caption.startsWith(captionNeeded)) {
+            return false
+        }
 
-        const password = caption.substring(captionNeeded.length).trim()
-        if (STICKER_PASSWORD && password !== STICKER_PASSWORD) return false
+        return !!this.extractJidFromMessage(message) && this.checkPassword(caption)
+    }
 
-        return !!this.extractJidFromMessage(message)
+    private checkQuotedMessage(message: WhatsappMessage): string {
+        const quoMessage = message?.message?.extendedTextMessage?.contextInfo
+        if (!quoMessage?.quotedMessage?.imageMessage) return ''
+
+        let caption = message.message.extendedTextMessage.text.toLowerCase().trim()
+        message.message.imageMessage = quoMessage.quotedMessage.imageMessage
+
+        const destination = this.getCaptionAttribute(caption, 'destination')
+        if (destination === 'sender') {
+            message.sendToJid = quoMessage.participant
+            caption = caption.replace('destination:sender', '')
+        }
+
+        delete message.message.extendedTextMessage
+
+        return caption
+    }
+
+    private checkPassword(caption: string): boolean {
+        if (!STICKER_PASSWORD) return true
+
+        return this.getCaptionAttribute(caption, 'password') === STICKER_PASSWORD
+    }
+
+    private getCaptionAttribute(caption: string, attr: string): string {
+        if (!caption?.includes(`${attr}:`)) return ''
+
+        const attrRegex = new RegExp(`.*${attr}:`, 'g')
+        return caption.split(attrRegex)[1]?.split('\n')[0]?.trim()
     }
 
     protected formatToIndonesian(number: string) {
