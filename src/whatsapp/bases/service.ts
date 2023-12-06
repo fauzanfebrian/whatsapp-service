@@ -91,6 +91,7 @@ export abstract class WhatsappBaseService {
             quality: 50,
             type: 'crop',
             author: this.serviceName,
+            pack: `${this.serviceName} X ${message.pushName}`,
         })
         const buffer = await sticker.toMessage()
 
