@@ -3,6 +3,10 @@ import { PORT, WA_AUTH_METHOD } from './config/config'
 import datasource from './db/datasource'
 import whatsappService from './whatsapp/service'
 
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path
+const ffmpeg = require('fluent-ffmpeg')
+ffmpeg.setFfmpegPath(ffmpegPath)
+
 async function initDB() {
     try {
         await datasource.initialize()

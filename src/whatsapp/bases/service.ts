@@ -85,20 +85,24 @@ export abstract class WhatsappBaseService {
             return false
         }
 
-        const image = await downloadMediaMessage(message, 'buffer', {})
+        const media = await downloadMediaMessage(message, 'buffer', {})
 
-        const sticker = new Sticker(image as Buffer, {
+        const sticker = new Sticker(media as Buffer, {
             quality: 50,
             type: 'crop',
             author: this.serviceName,
             pack: `${this.serviceName} X ${message.pushName}`,
         })
-        const buffer = await sticker.toMessage()
+        const buffer = await sticker.build()
 
         const id = this.extractJidFromMessage(message)
 
         console.log(`Sending sticker to ${id}`)
-        return this.sendMessage(id, buffer, { quoted: message })
+        return this.sendMessage(
+            id,
+            { sticker: buffer, isAnimated: !!message.message.videoMessage },
+            { quoted: message }
+        )
     }
 
     protected abstract removeSession(): Promise<void>
@@ -198,8 +202,21 @@ export abstract class WhatsappBaseService {
         return ''
     }
 
+    private getMessageMedia(message: WhatsappMessage['message']) {
+        if (message?.imageMessage) {
+            return message.imageMessage
+        }
+
+        if (message?.videoMessage && message.videoMessage.seconds <= 10) {
+            return message.videoMessage
+        }
+
+        return null
+    }
+
     protected shouldConvertSticker(message: WhatsappMessage): boolean {
-        let caption = (message?.message?.imageMessage?.caption || '').toLowerCase().trim()
+        const media = this.getMessageMedia(message.message)
+        let caption = (media?.caption || '').toLowerCase().trim()
 
         const quotedCaption = this.checkQuotedMessage(message)
         if (quotedCaption) {
@@ -216,11 +233,17 @@ export abstract class WhatsappBaseService {
 
     private checkQuotedMessage(message: WhatsappMessage): string {
         const quoMessage = message?.message?.extendedTextMessage?.contextInfo
-        if (!quoMessage?.quotedMessage?.imageMessage) return ''
+
+        const media = this.getMessageMedia(quoMessage?.quotedMessage)
+        if (!media) return ''
+
+        if (quoMessage.quotedMessage.imageMessage) {
+            message.message.imageMessage = quoMessage.quotedMessage.imageMessage
+        } else {
+            message.message.videoMessage = quoMessage.quotedMessage.videoMessage
+        }
 
         let caption = message.message.extendedTextMessage.text.toLowerCase().trim()
-        message.message.imageMessage = quoMessage.quotedMessage.imageMessage
-
         const destination = this.getCaptionAttribute(caption, 'destination')
         if (destination === 'sender') {
             message.sendToJid = quoMessage.participant
