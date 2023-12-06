@@ -5,6 +5,7 @@ import makeWASocket, {
     Contact,
     DisconnectReason,
     MessageUpsertType,
+    MiscMessageGenerationOptions,
     delay,
     downloadMediaMessage,
     fetchLatestBaileysVersion,
@@ -16,6 +17,7 @@ import fs from 'fs'
 import path from 'path'
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
+import { APPLICATION_NAME, APPLICATION_VERSION, STICKER_PASSWORD, QR_TERMINAL } from 'src/config/config'
 import { Sticker } from 'wa-sticker-formatter'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from './dto/message.dto'
 import { StatusWhatsappService, WhatsappError, WhatsappSocket } from './interface'
@@ -29,8 +31,11 @@ export class WhatsappService {
     constructor(private serviceName = 'Whatsapp Service', private serviceVersion = '0.0.1') {}
 
     async init() {
-        if (this.socket) return
+        if (this.socket) {
+            return
+        }
         this.socket = await this.createNewSocket()
+        console.log(`Whatsapp service "${this.serviceName}" v${this.serviceVersion} ready`)
     }
 
     async sendText(dto: SendTextDto) {
@@ -91,7 +96,12 @@ export class WhatsappService {
         }
     }
 
-    private async sendMessage(phoneNumber: string, content: AnyMessageContent, recursive?: number): Promise<boolean> {
+    private async sendMessage(
+        phoneNumber: string,
+        content: AnyMessageContent,
+        options?: MiscMessageGenerationOptions,
+        recursive?: number
+    ): Promise<boolean> {
         try {
             this.checkIsConnected()
 
@@ -105,7 +115,7 @@ export class WhatsappService {
                     await delay(3)
                     await this.socket.sendPresenceUpdate('paused', jid)
                     await delay(3)
-                    await this.socket.sendMessage(jid, content)
+                    await this.socket.sendMessage(jid, content, options)
                     resolve(true)
                 } catch (error) {
                     reject(error)
@@ -117,7 +127,7 @@ export class WhatsappService {
             // check if can reload and the recursive not at maximum
             if (this.isShouldResend(error) && (recursive || 0) < 20) {
                 await delay(500)
-                return await this.sendMessage(phoneNumber, content, (recursive || 0) + 1)
+                return await this.sendMessage(phoneNumber, content, options, (recursive || 0) + 1)
             }
 
             throw error
@@ -138,33 +148,36 @@ export class WhatsappService {
             markOnlineOnConnect: false,
         })
 
-        // listener
         socket.ev.on('connection.update', update => this.onConnectionUpdate(socket, state, update))
         socket.ev.on('creds.update', saveCreds)
 
         return socket
     }
 
-    private async onNewMessage(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
-        try {
-            return await Promise.all(chats?.messages?.map(message => this.convertAndSendSticker(message)))
-        } catch (error) {
-            console.error(error)
-        }
-    }
-
     private extractJidFromMessage(message: proto.IWebMessageInfo): string {
-        if (message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
+        const remoteJid = message?.key?.remoteJid
+        const participant = message?.key?.participant
+
+        if (remoteJid?.includes('@s.whatsapp.net')) {
             return message.key.remoteJid
         }
+        if (participant?.includes('@s.whatsapp.net') && remoteJid?.includes('@g.us')) {
+            return message.key.participant
+        }
+
         return ''
     }
 
     private shouldConvertSticker(message: proto.IWebMessageInfo): boolean {
-        const captions = ['#convert_to_sticker', 'convert to sticker', '#sticker']
-        const caption = message?.message?.imageMessage?.caption?.toLowerCase()
+        const captionNeeded = '#convert_sticker'
+        const caption = message?.message?.imageMessage?.caption?.toLowerCase()?.trim() || ''
 
-        return captions.includes(caption) && !!this.extractJidFromMessage(message)
+        if (!caption.startsWith(captionNeeded)) return false
+
+        const password = caption.substring(captionNeeded.length).trim()
+        if (STICKER_PASSWORD && password !== STICKER_PASSWORD) return false
+
+        return !!this.extractJidFromMessage(message)
     }
 
     async convertAndSendSticker(message: proto.IWebMessageInfo) {
@@ -184,51 +197,7 @@ export class WhatsappService {
         const id = this.extractJidFromMessage(message)
 
         console.log(`Sending sticker to ${id}`)
-        return this.sendMessage(id, buffer)
-    }
-
-    private async onConnectionUpdate(
-        socket: WhatsappSocket,
-        state: AuthenticationState,
-        update: Partial<ConnectionState>
-    ): Promise<void> {
-        const { connection, lastDisconnect } = update
-
-        this.qrcode = update.qr
-        if (update.qr && process.env.QR_TERMINAL === 'true') {
-            console.log('\n')
-            QRCodeTerminal.generate(update.qr, { small: true })
-            console.log('Scan QRCode to connect your whatsapp\n')
-        }
-
-        if (connection === 'close') {
-            const statusCode = (lastDisconnect?.error as any)?.output?.statusCode
-
-            if (statusCode === DisconnectReason.loggedOut) {
-                this.removeSession()
-                delete this.contactConnected
-
-                console.log('Whatsapp logged out')
-            }
-
-            this.socket = await this.createNewSocket()
-            return
-        }
-
-        if (connection === 'open') {
-            const user = { ...state.creds.me }
-            user.id = this.formatToIndonesian(user?.id)
-
-            this.contactConnected = user
-            await socket.sendPresenceUpdate('unavailable')
-            delete this.qrcode
-
-            socket.ev.removeAllListeners('messages.upsert')
-            socket.ev.on('messages.upsert', chats => this.onNewMessage(chats))
-
-            console.log(`Whatsapp connected to ${user.id}`)
-            return
-        }
+        return this.sendMessage(id, buffer, { quoted: message })
     }
 
     private formatToIndonesian(number: string) {
@@ -271,6 +240,59 @@ export class WhatsappService {
         } catch {}
     }
 
+    private async onNewMessage(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
+        try {
+            return await Promise.all(chats?.messages?.map(message => this.convertAndSendSticker(message)))
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
+    private async onConnectionUpdate(
+        socket: WhatsappSocket,
+        state: AuthenticationState,
+        update: Partial<ConnectionState>
+    ): Promise<void> {
+        const { connection, lastDisconnect } = update
+
+        this.qrcode = update.qr
+        if (update.qr && QR_TERMINAL) {
+            console.log('\n')
+            QRCodeTerminal.generate(update.qr, { small: true })
+            console.log('Scan QRCode to connect your whatsapp\n')
+        }
+
+        if (connection === 'close') {
+            const statusCode = (lastDisconnect?.error as any)?.output?.statusCode
+
+            if (statusCode === DisconnectReason.loggedOut) {
+                socket.ev.removeAllListeners('messages.upsert')
+                this.removeSession()
+                delete this.contactConnected
+
+                console.log('Whatsapp logged out')
+            }
+
+            this.socket = await this.createNewSocket()
+            return
+        }
+
+        if (connection === 'open') {
+            const user = { ...state.creds.me }
+            user.id = this.formatToIndonesian(user?.id)
+
+            this.contactConnected = user
+            await socket.sendPresenceUpdate('unavailable')
+            delete this.qrcode
+
+            socket.ev.removeAllListeners('messages.upsert')
+            socket.ev.on('messages.upsert', chats => this.onNewMessage(chats))
+
+            console.log(`Whatsapp connected to ${user.id}`)
+            return
+        }
+    }
+
     private checkIsConnected() {
         const status = this.getStatus()
 
@@ -292,6 +314,6 @@ export class WhatsappService {
     }
 }
 
-const whatsappService = new WhatsappService(process.env.APPLICATION_NAME, process.env.APPLICATION_VERSION)
+const whatsappService = new WhatsappService(APPLICATION_NAME, APPLICATION_VERSION)
 
 export default whatsappService
