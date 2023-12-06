@@ -5,11 +5,13 @@ import {
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
+    Unique,
     UpdateDateColumn,
 } from 'typeorm'
 import { AuthCredential } from './credential'
 
 @Entity({ name: 'states' })
+@Unique(['credentialId', 'key'])
 export class AuthState {
     @PrimaryGeneratedColumn()
     id: string

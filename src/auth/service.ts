@@ -59,8 +59,16 @@ export class AuthService {
     }
 
     async setStateValue(credential: AuthCredential, key: string, value: any): Promise<void> {
+        const existState = await this.stateRepository.findOne({
+            where: {
+                credentialId: credential.id,
+                key,
+            },
+        })
+
         await this.stateRepository.save(
             this.stateRepository.create({
+                ...(existState || {}),
                 credentialId: credential.id,
                 key,
                 value,

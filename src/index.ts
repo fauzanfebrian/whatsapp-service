@@ -1,5 +1,5 @@
 import app from './app'
-import { PORT } from './config/config'
+import { PORT, WA_AUTH_METHOD } from './config/config'
 import datasource from './db/datasource'
 import whatsappService from './whatsapp/service'
 
@@ -14,7 +14,9 @@ async function initDB() {
 }
 
 async function bootstrap() {
-    await initDB()
+    if (WA_AUTH_METHOD === 'db') {
+        await initDB()
+    }
 
     try {
         await whatsappService.initialize()
