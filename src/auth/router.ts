@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { WA_AUTH_METHOD } from 'src/config/config'
-import { getAllSessions } from './controller'
+import { activateSession, deactivateSession, getAllSessions } from './controller'
 
 const authRouter = Router()
 
@@ -15,6 +15,8 @@ authRouter.use((_req, res, next) => {
     return next()
 })
 
-authRouter.get('sessions', getAllSessions)
+authRouter.get('/', getAllSessions)
+authRouter.put('/:id/activate', activateSession)
+authRouter.put('/:id/deactivate', deactivateSession)
 
 export default authRouter

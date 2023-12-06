@@ -5,6 +5,7 @@ export interface Session {
     active: boolean
     createdAt: Date
     updatedAt: Date
-    user: Contact
-    platform: string
+    connected: boolean
+    user?: Contact
+    platform?: string
 }

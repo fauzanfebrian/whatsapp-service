@@ -1,8 +1,9 @@
 import datasource from 'src/db/datasource'
-import { Repository } from 'typeorm'
+import { Not, Repository } from 'typeorm'
 import { AuthCredential } from './entities/credential'
 import { AuthState } from './entities/state'
 import { Session } from './interface'
+import whatsappService from 'src/whatsapp/service'
 
 export class AuthService {
     private credentialRepository: Repository<AuthCredential>
@@ -78,8 +79,35 @@ export class AuthService {
 
     async getSessions(): Promise<Session[]> {
         const sessions = await this.credentialRepository.find()
-
         return sessions.map(this.buildSession)
+    }
+
+    async activateSession(id: number): Promise<boolean> {
+        const session = await this.credentialRepository.findOne({ where: { id } })
+
+        if (session?.active) return false
+
+        await this.credentialRepository.update({ id: Not(id), active: true }, { active: false })
+
+        session.active = true
+        await this.credentialRepository.save(session)
+
+        await whatsappService.reInitialize()
+
+        return true
+    }
+
+    async deactivateSession(id: number): Promise<boolean> {
+        const session = await this.credentialRepository.findOne({ where: { id } })
+
+        if (!session?.active) return false
+
+        session.active = false
+        await this.credentialRepository.save(session)
+
+        await whatsappService.reInitialize()
+
+        return true
     }
 
     private buildSession(credential: AuthCredential): Session {
@@ -88,8 +116,9 @@ export class AuthService {
             active: credential.active,
             createdAt: credential.createdAt,
             updatedAt: credential.updatedAt,
-            user: credential.value.me,
-            platform: credential.value.platform,
+            connected: !!credential.value?.me?.id,
+            user: credential.value?.me,
+            platform: credential.value?.platform,
         }
     }
 }
