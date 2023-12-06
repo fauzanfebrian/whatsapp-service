@@ -20,7 +20,7 @@ import QRCodeTerminal from 'qrcode-terminal'
 import { APPLICATION_NAME, APPLICATION_VERSION, STICKER_PASSWORD, QR_TERMINAL } from 'src/config/config'
 import { Sticker } from 'wa-sticker-formatter'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from './dto/message.dto'
-import { StatusWhatsappService, WhatsappError, WhatsappSocket } from './interface'
+import { StatusWhatsappService, WhatsappError, WhatsappMessage, WhatsappSocket } from './interface'
 
 export class WhatsappService {
     private session_directory = 'sessions'
@@ -36,6 +36,16 @@ export class WhatsappService {
         }
         this.socket = await this.createNewSocket()
         console.log(`Whatsapp service "${this.serviceName}" v${this.serviceVersion} ready`)
+    }
+
+    async reInit() {
+        this.socket.ev.removeAllListeners('connection.update')
+        this.socket.ev.removeAllListeners('creds.update')
+        this.socket.ev.removeAllListeners('messages.upsert')
+
+        this.socket = await this.createNewSocket()
+
+        console.log(`Reinitialize Whatsapp service "${this.serviceName}" v${this.serviceVersion} success`)
     }
 
     async sendText(dto: SendTextDto) {
@@ -75,6 +85,26 @@ export class WhatsappService {
         })
     }
 
+    async convertAndSendSticker(message: WhatsappMessage) {
+        if (!this.shouldConvertSticker(message)) {
+            return false
+        }
+
+        const image = await downloadMediaMessage(message, 'buffer', {})
+
+        const sticker = new Sticker(image as Buffer, {
+            quality: 50,
+            type: 'crop',
+            author: this.serviceName,
+        })
+        const buffer = await sticker.toMessage()
+
+        const id = this.extractJidFromMessage(message)
+
+        console.log(`Sending sticker to ${id}`)
+        return this.sendMessage(id, buffer, { quoted: message })
+    }
+
     async logout() {
         this.checkIsConnected()
 
@@ -83,7 +113,7 @@ export class WhatsappService {
         this.removeSession()
 
         delete this.contactConnected
-        this.socket = await this.createNewSocket()
+        await this.reInit()
 
         return true
     }
@@ -154,50 +184,42 @@ export class WhatsappService {
         return socket
     }
 
-    private extractJidFromMessage(message: proto.IWebMessageInfo): string {
-        const remoteJid = message?.key?.remoteJid
-        const participant = message?.key?.participant
-
-        if (remoteJid?.includes('@s.whatsapp.net')) {
+    private extractJidFromMessage(message: WhatsappMessage): string {
+        if (message?.sendToJid?.includes('@s.whatsapp.net')) {
+            return message.sendToJid
+        }
+        if (message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
             return message.key.remoteJid
         }
-        if (participant?.includes('@s.whatsapp.net') && remoteJid?.includes('@g.us')) {
+        if (message?.key?.participant?.includes('@s.whatsapp.net') && message?.key?.remoteJid?.includes('@g.us')) {
             return message.key.participant
         }
 
         return ''
     }
 
-    private shouldConvertSticker(message: proto.IWebMessageInfo): boolean {
-        const captionNeeded = '#convert_sticker'
-        const caption = message?.message?.imageMessage?.caption?.toLowerCase()?.trim() || ''
+    private shouldConvertSticker(message: WhatsappMessage): boolean {
+        let caption = (message?.message?.imageMessage?.caption || '').toLowerCase().trim()
 
+        const quoMessage = message?.message?.extendedTextMessage?.contextInfo
+        if (!!quoMessage?.quotedMessage?.imageMessage) {
+            caption = message.message.extendedTextMessage.text.toLowerCase().trim()
+            message.message.imageMessage = quoMessage.quotedMessage.imageMessage
+
+            if (caption.includes('dest:sender')) {
+                message.sendToJid = quoMessage.participant
+            }
+
+            delete message.message.extendedTextMessage
+        }
+
+        const captionNeeded = '#convert_sticker'
         if (!caption.startsWith(captionNeeded)) return false
 
         const password = caption.substring(captionNeeded.length).trim()
         if (STICKER_PASSWORD && password !== STICKER_PASSWORD) return false
 
         return !!this.extractJidFromMessage(message)
-    }
-
-    async convertAndSendSticker(message: proto.IWebMessageInfo) {
-        if (!this.shouldConvertSticker(message)) {
-            return false
-        }
-
-        const image = await downloadMediaMessage(message, 'buffer', {})
-
-        const sticker = new Sticker(image as Buffer, {
-            quality: 50,
-            type: 'crop',
-            author: this.serviceName,
-        })
-        const buffer = await sticker.toMessage()
-
-        const id = this.extractJidFromMessage(message)
-
-        console.log(`Sending sticker to ${id}`)
-        return this.sendMessage(id, buffer, { quoted: message })
     }
 
     private formatToIndonesian(number: string) {
@@ -240,7 +262,7 @@ export class WhatsappService {
         } catch {}
     }
 
-    private async onNewMessage(chats: { messages: proto.IWebMessageInfo[]; type: MessageUpsertType }) {
+    private async onNewMessage(chats: { messages: WhatsappMessage[]; type: MessageUpsertType }) {
         try {
             return await Promise.all(chats?.messages?.map(message => this.convertAndSendSticker(message)))
         } catch (error) {
@@ -266,14 +288,13 @@ export class WhatsappService {
             const statusCode = (lastDisconnect?.error as any)?.output?.statusCode
 
             if (statusCode === DisconnectReason.loggedOut) {
-                socket.ev.removeAllListeners('messages.upsert')
                 this.removeSession()
                 delete this.contactConnected
 
                 console.log('Whatsapp logged out')
             }
 
-            this.socket = await this.createNewSocket()
+            await this.reInit()
             return
         }
 

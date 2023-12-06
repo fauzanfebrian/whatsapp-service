@@ -1,4 +1,4 @@
-import makeWASocket, { Contact } from '@whiskeysockets/baileys'
+import makeWASocket, { Contact, proto } from '@whiskeysockets/baileys'
 
 export interface WhatsappSocket extends ReturnType<typeof makeWASocket> {}
 
@@ -12,4 +12,8 @@ export interface StatusWhatsappService {
     isConnected: boolean
     contactConnected?: Contact
     qrcode?: string
+}
+
+export interface WhatsappMessage extends proto.IWebMessageInfo {
+    sendToJid?: string
 }
