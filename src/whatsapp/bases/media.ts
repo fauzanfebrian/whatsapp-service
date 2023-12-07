@@ -28,9 +28,12 @@ export class MediaMessage {
     }
 
     async extractStickerMedia(pack: string, author?: string): Promise<ExtractStickerMediaData> {
-        const targetJid = this.extractJidFromMessage()
+        if (!this.shouldConvertSticker()) {
+            return null
+        }
 
-        if (!this.shouldConvertSticker() || !targetJid) {
+        const targetJid = this.extractJidFromMessage()
+        if (!targetJid) {
             return null
         }
 
@@ -48,9 +51,12 @@ export class MediaMessage {
     }
 
     async extractViewOnceMedia(): Promise<ExtractViewOnceMediaData> {
-        const targetJid = this.extractJidFromMessage()
+        if (!this.shouldConvertViewOnceMedia()) {
+            return null
+        }
 
-        if (!this.shouldConvertViewOnceMedia() || !targetJid) {
+        const targetJid = this.extractJidFromMessage()
+        if (!targetJid) {
             return null
         }
 
