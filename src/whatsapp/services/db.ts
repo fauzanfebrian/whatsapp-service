@@ -1,11 +1,4 @@
-import {
-    AuthenticationCreds,
-    BufferJSON,
-    SignalDataSet,
-    SignalDataTypeMap,
-    initAuthCreds,
-    proto,
-} from '@whiskeysockets/baileys'
+import { AuthenticationCreds, SignalDataSet, SignalDataTypeMap, initAuthCreds, proto } from '@whiskeysockets/baileys'
 import { AuthCredential } from 'src/auth/entities/credential'
 import authService from 'src/auth/service'
 import { WhatsappBaseService } from '../bases/service'
@@ -15,7 +8,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
     protected async makeAuthState(): Promise<AuthState> {
         const credential = await authService.getActiveCredential()
 
-        const creds: AuthenticationCreds = this.readData(credential?.value) || initAuthCreds()
+        const creds: AuthenticationCreds = credential?.value || initAuthCreds()
 
         return {
             state: {
@@ -26,23 +19,13 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
                 },
             },
             saveCreds: async () => {
-                await authService.saveCredential(credential, this.writeData(creds))
+                await authService.saveCredential(credential, creds)
             },
         }
     }
 
-    private fixKey(key?: string) {
-        return key?.replace(/\//g, '__')?.replace(/:/g, '-')
-    }
-
-    private readData(value: any): any {
-        if (!value) return value
-
-        return JSON.parse(JSON.stringify(value), BufferJSON.reviver)
-    }
-
-    private writeData(value: any): any {
-        return JSON.parse(JSON.stringify(value, BufferJSON.replacer))
+    private fixKey(type: string, id: string) {
+        return Buffer.from(JSON.stringify({ type, id })).toString('base64url')
     }
 
     private async getStateData<T extends keyof SignalDataTypeMap>(
@@ -54,13 +37,13 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
 
         await Promise.all(
             ids.map(async id => {
-                let value = await authService.getStateValue(credential, this.fixKey(`${type}-${id}`))
+                let value = await authService.getStateValue(credential, this.fixKey(type, id))
 
                 if (type === 'app-state-sync-key' && value) {
                     value = proto.Message.AppStateSyncKeyData.fromObject(value)
                 }
 
-                data[id] = this.readData(value)
+                data[id] = value
             })
         )
 
@@ -70,13 +53,13 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
     private async setStateData(credential: AuthCredential, data: SignalDataSet) {
         const tasks: Promise<void>[] = []
 
-        for (const category in data) {
-            for (const id in data[category]) {
-                const value = data[category][id]
-                const key = this.fixKey(`${category}-${id}`)
+        for (const type in data) {
+            for (const id in data[type]) {
+                const value = data[type][id]
+                const key = this.fixKey(type, id)
                 tasks.push(
                     value
-                        ? authService.setStateValue(credential, key, this.writeData(value))
+                        ? authService.setStateValue(credential, key, value)
                         : authService.removeStateValue(credential, key)
                 )
             }

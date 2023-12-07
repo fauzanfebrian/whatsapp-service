@@ -1,4 +1,10 @@
+import { BufferJSON } from '@whiskeysockets/baileys'
 import {
+    AfterInsert,
+    AfterLoad,
+    AfterUpdate,
+    BeforeInsert,
+    BeforeUpdate,
     Column,
     CreateDateColumn,
     Entity,
@@ -34,4 +40,21 @@ export class AuthState {
 
     @UpdateDateColumn({ type: 'timestamptz' })
     updatedAt!: Date
+
+    @BeforeInsert()
+    @BeforeUpdate()
+    private parseJsonWrite() {
+        if (this.value) {
+            this.value = JSON.parse(JSON.stringify(this.value, BufferJSON.replacer))
+        }
+    }
+
+    @AfterInsert()
+    @AfterUpdate()
+    @AfterLoad()
+    private parseJsonRead() {
+        if (this.value) {
+            this.value = JSON.parse(JSON.stringify(this.value), BufferJSON.reviver)
+        }
+    }
 }
