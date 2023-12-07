@@ -1,4 +1,4 @@
-import { downloadMediaMessage } from '@whiskeysockets/baileys'
+import { downloadMediaMessage, proto } from '@whiskeysockets/baileys'
 import { STICKER_PASSWORD } from 'src/config/config'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
 import { WhatsappMessage } from '../interface'
@@ -6,6 +6,11 @@ import { WhatsappMessage } from '../interface'
 interface ExtractStickerMediaData {
     media: Buffer
     targetJid: string
+}
+
+interface ValueMessageMedia {
+    media: proto.Message.IImageMessage | proto.Message.IVideoMessage
+    type: 'image' | 'video'
 }
 
 export class MediaMessage {
@@ -35,13 +40,19 @@ export class MediaMessage {
         return { targetJid, media: buffer }
     }
 
-    private getMessageMedia(message: WhatsappMessage['message']) {
+    private getMessageMedia(message: WhatsappMessage['message']): ValueMessageMedia {
         if (message?.imageMessage) {
-            return message.imageMessage
+            return { media: message.imageMessage, type: 'image' }
         }
-        // if (message?.videoMessage && message.videoMessage.seconds <= 10) {
-        //     return message.videoMessage
-        // }
+        if (message?.viewOnceMessageV2?.message?.imageMessage) {
+            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'image' }
+        }
+        if (message?.viewOnceMessageV2?.message?.videoMessage) {
+            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'video' }
+        }
+        if (message?.videoMessage) {
+            return { media: message.videoMessage, type: 'video' }
+        }
 
         return null
     }
@@ -65,12 +76,6 @@ export class MediaMessage {
         const media = this.getMessageMedia(quoMessage?.quotedMessage)
         if (!media) return ''
 
-        if (quoMessage.quotedMessage.videoMessage) {
-            this.message.message.videoMessage = quoMessage.quotedMessage.videoMessage
-        } else {
-            this.message.message.imageMessage = quoMessage.quotedMessage.imageMessage
-        }
-
         let caption = this.message.message.extendedTextMessage.text.toLowerCase().trim()
         const destination = this.getCaptionAttribute(caption, 'destination')
         if (destination === 'sender') {
@@ -78,7 +83,8 @@ export class MediaMessage {
             caption = caption.replace('destination:sender', '')
         }
 
-        delete this.message.message.extendedTextMessage
+        const message = quoMessage.quotedMessage
+        this.message.message = message
 
         return caption
     }
@@ -101,12 +107,16 @@ export class MediaMessage {
     }
 
     private shouldConvertSticker(): boolean {
-        const media = this.getMessageMedia(this.message.message)
-        let caption = (media?.caption || '').toLowerCase().trim()
+        let caption = this.getMessageMedia(this.message.message)?.media?.caption.toLowerCase().trim()
 
         const quotedCaption = this.checkQuotedMessage()
         if (quotedCaption) {
             caption = quotedCaption
+        }
+
+        // check after quoted checked
+        if (this.getMessageMedia(this.message.message)?.type !== 'image') {
+            return false
         }
 
         if (!caption.startsWith('#convert_sticker') && !caption.startsWith('#sticker')) {
