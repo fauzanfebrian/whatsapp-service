@@ -223,8 +223,7 @@ export abstract class WhatsappBaseService {
             caption = quotedCaption
         }
 
-        const captionNeeded = '#convert_sticker'
-        if (!caption.startsWith(captionNeeded)) {
+        if (!caption.startsWith('#convert_sticker') && !caption.startsWith('#sticker')) {
             return false
         }
 
