@@ -15,7 +15,10 @@ export interface StatusWhatsappService {
 }
 
 export interface WhatsappMessage extends proto.IWebMessageInfo {
-    sendToJid?: string
+    quoted?: {
+        sendToJid?: string
+        message?: string
+    }
 }
 
 export interface AuthState {

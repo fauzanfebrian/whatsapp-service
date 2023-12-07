@@ -1,5 +1,5 @@
 import { downloadMediaMessage, proto } from '@whiskeysockets/baileys'
-import { STICKER_PASSWORD } from 'src/config/config'
+import { BOT_PASSWORD } from 'src/config/config'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
 import { WhatsappMessage } from '../interface'
 
@@ -78,33 +78,32 @@ export class MediaMessage {
     }
 
     private checkPassword(caption: string): boolean {
-        if (!STICKER_PASSWORD) return true
+        if (!BOT_PASSWORD) return true
 
-        return this.getCaptionAttribute(caption, 'password') === STICKER_PASSWORD
+        return this.getCaptionAttribute(caption, 'password') === BOT_PASSWORD
     }
 
-    private checkQuotedMessage(): string {
-        const quoMessage = this.message?.message?.extendedTextMessage?.contextInfo
+    private checkQuotedMessage() {
+        const quoMessage = this.message?.message?.extendedTextMessage
 
-        const media = this.getMessageMedia(quoMessage?.quotedMessage)
-        if (!media) return ''
+        const media = this.getMessageMedia(quoMessage?.contextInfo?.quotedMessage)
+        if (!media) return
 
-        let caption = this.message.message.extendedTextMessage.text.toLowerCase().trim()
+        const caption = quoMessage.text.toLowerCase().trim()
         const destination = this.getCaptionAttribute(caption, 'destination')
+
+        this.message.quoted = { message: caption }
+
         if (destination === 'sender') {
-            this.message.sendToJid = quoMessage.participant
-            caption = caption.replace('destination:sender', '')
+            this.message.quoted.sendToJid = quoMessage.contextInfo.participant
         }
 
-        const message = quoMessage.quotedMessage
-        this.message.message = message
-
-        return caption
+        this.message.message = quoMessage.contextInfo.quotedMessage
     }
 
     private extractJidFromMessage(): string {
-        if (this.message?.sendToJid?.includes('@s.whatsapp.net')) {
-            return this.message.sendToJid
+        if (this.message?.quoted?.sendToJid?.includes('@s.whatsapp.net')) {
+            return this.message.quoted.sendToJid
         }
         if (this.message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
             return this.message.key.remoteJid
@@ -120,18 +119,16 @@ export class MediaMessage {
     }
 
     private shouldConvertSticker(): boolean {
-        let caption = this.getMessageMedia(this.message.message)?.media?.caption?.toLowerCase()?.trim?.()
+        this.checkQuotedMessage()
 
-        const quotedCaption = this.checkQuotedMessage()
-        if (quotedCaption) {
-            caption = quotedCaption
-        }
+        const stickerMedia = this.getMessageMedia(this.message.message)
 
-        // check after quoted checked
-        if (this.getMessageMedia(this.message.message)?.type !== 'image') {
+        if (stickerMedia?.type !== 'image' || stickerMedia?.viewOnce) {
             return false
         }
 
+        const baseCaption = stickerMedia?.media?.caption || this.message?.quoted?.message
+        const caption = baseCaption?.toLowerCase()?.trim?.()
         if (!caption?.startsWith('#convert_sticker') && !caption?.startsWith('#sticker')) {
             return false
         }
@@ -140,12 +137,16 @@ export class MediaMessage {
     }
 
     private shouldConvertViewOnceMedia(): boolean {
-        const caption = this.checkQuotedMessage()
+        this.checkQuotedMessage()
 
-        if (!this.getMessageMedia(this.message.message)?.viewOnce) {
+        const viewOnceMedia = this.getMessageMedia(this.message.message)
+
+        if (!viewOnceMedia?.viewOnce) {
             return false
         }
 
+        const baseCaption = viewOnceMedia?.media?.caption || this.message?.quoted?.message
+        const caption = baseCaption?.toLowerCase()?.trim?.()
         if (!caption?.startsWith('#download_view_once')) {
             return false
         }

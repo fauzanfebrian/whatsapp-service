@@ -6,7 +6,7 @@ const { APPLICATION_NAME, APPLICATION_VERSION, DB_HOST, DB_USERNAME, DB_PASSWORD
 
 const QR_TERMINAL = process.env.QR_TERMINAL?.toLowerCase() === 'true'
 const PORT = +process.env.PORT || 5000
-const STICKER_PASSWORD = process.env.STICKER_PASSWORD?.trim()
+const BOT_PASSWORD = process.env.BOT_PASSWORD?.trim()
 const DB_PORT = +process.env.DB_PORT
 
 const WA_AUTH_METHOD: 'db' | 'file' = DB_HOST && DB_NAME && DB_PORT && DB_PASSWORD && DB_USERNAME ? 'db' : 'file'
@@ -16,7 +16,7 @@ export {
     QR_TERMINAL,
     APPLICATION_NAME,
     APPLICATION_VERSION,
-    STICKER_PASSWORD,
+    BOT_PASSWORD,
     DB_HOST,
     DB_PORT,
     DB_USERNAME,
