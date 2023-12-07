@@ -71,13 +71,14 @@ export class MediaMessage {
             return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'image', viewOnce: true }
         }
         if (message?.viewOnceMessageV2?.message?.videoMessage) {
-            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'video', viewOnce: true }
+            return { media: message?.viewOnceMessageV2?.message?.videoMessage, type: 'video', viewOnce: true }
         }
+
         if (message?.viewOnceMessage?.message?.imageMessage) {
             return { media: message?.viewOnceMessage?.message?.imageMessage, type: 'image', viewOnce: true }
         }
         if (message?.viewOnceMessage?.message?.videoMessage) {
-            return { media: message?.viewOnceMessage?.message?.imageMessage, type: 'video', viewOnce: true }
+            return { media: message?.viewOnceMessage?.message?.videoMessage, type: 'video', viewOnce: true }
         }
 
         return null
