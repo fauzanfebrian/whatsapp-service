@@ -7,18 +7,15 @@ import makeWASocket, {
     MessageUpsertType,
     MiscMessageGenerationOptions,
     delay,
-    downloadMediaMessage,
     fetchLatestBaileysVersion,
     promiseTimeout,
 } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
-import { QR_TERMINAL, STICKER_PASSWORD } from 'src/config/config'
-import { Sticker, StickerTypes } from 'wa-sticker-formatter'
+import { QR_TERMINAL } from 'src/config/config'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
 import { AuthState, StatusWhatsappService, WhatsappError, WhatsappMessage, WhatsappSocket } from '../interface'
-import { writeFile } from 'fs'
-import { resolve } from 'path'
+import { MediaMessage } from './media'
 
 export abstract class WhatsappBaseService {
     protected contactConnected: Contact
@@ -83,24 +80,15 @@ export abstract class WhatsappBaseService {
     }
 
     async convertAndSendSticker(message: WhatsappMessage) {
-        if (!this.shouldConvertSticker(message)) {
+        const media = new MediaMessage(message)
+
+        const sticker = await media.extractStickerMedia(`${this.serviceName} X ${message.pushName}`, this.serviceName)
+        if (!sticker) {
             return false
         }
 
-        const media = await downloadMediaMessage(message, 'buffer', {})
-
-        const sticker = new Sticker(media as Buffer, {
-            quality: 50,
-            type: StickerTypes.CROPPED,
-            author: this.serviceName,
-            pack: `${this.serviceName} X ${message.pushName}`,
-        })
-        const stickerMessage = await sticker.toMessage()
-
-        const id = this.extractJidFromMessage(message)
-
-        console.log(`Sending sticker to ${id}`)
-        return this.sendMessage(id, stickerMessage, { quoted: message })
+        console.log(`Sending sticker to ${sticker.targetJid}`)
+        return this.sendMessage(sticker.targetJid, { sticker: sticker.media }, { quoted: message })
     }
 
     protected abstract removeSession(): Promise<void>
@@ -184,84 +172,6 @@ export abstract class WhatsappBaseService {
         socket.ev.on('creds.update', saveCreds)
 
         return socket
-    }
-
-    protected extractJidFromMessage(message: WhatsappMessage): string {
-        if (message?.sendToJid?.includes('@s.whatsapp.net')) {
-            return message.sendToJid
-        }
-        if (message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
-            return message.key.remoteJid
-        }
-        if (message?.key?.participant?.includes('@s.whatsapp.net') && message?.key?.remoteJid?.includes('@g.us')) {
-            return message.key.participant
-        }
-
-        return ''
-    }
-
-    private getMessageMedia(message: WhatsappMessage['message']) {
-        if (message?.imageMessage) {
-            return message.imageMessage
-        }
-        // if (message?.videoMessage && message.videoMessage.seconds <= 10) {
-        //     return message.videoMessage
-        // }
-
-        return null
-    }
-
-    protected shouldConvertSticker(message: WhatsappMessage): boolean {
-        const media = this.getMessageMedia(message.message)
-        let caption = (media?.caption || '').toLowerCase().trim()
-
-        const quotedCaption = this.checkQuotedMessage(message)
-        if (quotedCaption) {
-            caption = quotedCaption
-        }
-
-        if (!caption.startsWith('#convert_sticker') && !caption.startsWith('#sticker')) {
-            return false
-        }
-
-        return !!this.extractJidFromMessage(message) && this.checkPassword(caption)
-    }
-
-    private checkQuotedMessage(message: WhatsappMessage): string {
-        const quoMessage = message?.message?.extendedTextMessage?.contextInfo
-
-        const media = this.getMessageMedia(quoMessage?.quotedMessage)
-        if (!media) return ''
-
-        if (quoMessage.quotedMessage.videoMessage) {
-            message.message.videoMessage = quoMessage.quotedMessage.videoMessage
-        } else {
-            message.message.imageMessage = quoMessage.quotedMessage.imageMessage
-        }
-
-        let caption = message.message.extendedTextMessage.text.toLowerCase().trim()
-        const destination = this.getCaptionAttribute(caption, 'destination')
-        if (destination === 'sender') {
-            message.sendToJid = quoMessage.participant
-            caption = caption.replace('destination:sender', '')
-        }
-
-        delete message.message.extendedTextMessage
-
-        return caption
-    }
-
-    private checkPassword(caption: string): boolean {
-        if (!STICKER_PASSWORD) return true
-
-        return this.getCaptionAttribute(caption, 'password') === STICKER_PASSWORD
-    }
-
-    private getCaptionAttribute(caption: string, attr: string): string {
-        if (!caption?.includes(`${attr}:`)) return ''
-
-        const attrRegex = new RegExp(`.*${attr}:`, 'g')
-        return caption.split(attrRegex)[1]?.split('\n')[0]?.trim()
     }
 
     protected formatToIndonesian(number: string) {
