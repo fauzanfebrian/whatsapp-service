@@ -9,7 +9,11 @@ interface ExtractStickerMediaData {
 }
 
 export class MediaMessage {
-    constructor(private message: WhatsappMessage) {}
+    private message: WhatsappMessage
+
+    constructor(message: WhatsappMessage) {
+        this.message = JSON.parse(JSON.stringify(message))
+    }
 
     async extractStickerMedia(pack: string, author?: string): Promise<ExtractStickerMediaData | null> {
         const targetJid = this.extractJidFromMessage()
