@@ -10,6 +10,7 @@ import {
     Entity,
     JoinColumn,
     ManyToOne,
+    PrimaryColumn,
     PrimaryGeneratedColumn,
     Unique,
     UpdateDateColumn,
@@ -17,12 +18,8 @@ import {
 import { AuthCredential } from './credential'
 
 @Entity({ name: 'states' })
-@Unique(['credentialId', 'key'])
 export class AuthState {
-    @PrimaryGeneratedColumn()
-    id: string
-
-    @Column()
+    @PrimaryColumn()
     key: string
 
     @Column({ nullable: true, type: 'json' })
