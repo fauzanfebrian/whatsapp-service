@@ -1,9 +1,9 @@
 import datasource from 'src/db/datasource'
-import { Not, Repository } from 'typeorm'
+import whatsappService from 'src/whatsapp/service'
+import { IsNull, Not, Repository } from 'typeorm'
 import { AuthCredential } from './entities/credential'
 import { AuthState } from './entities/state'
 import { Session } from './interface'
-import whatsappService from 'src/whatsapp/service'
 
 export class AuthService {
     private credentialRepository: Repository<AuthCredential>
@@ -23,6 +23,18 @@ export class AuthService {
 
         if (activeCreds) {
             return activeCreds
+        }
+
+        const notConnectedCredential = await this.credentialRepository.findOne({
+            where: {
+                value: IsNull(),
+            },
+        })
+
+        if (notConnectedCredential) {
+            notConnectedCredential.active = true
+            await this.credentialRepository.save(notConnectedCredential)
+            return notConnectedCredential
         }
 
         const credential = await this.credentialRepository.save(
@@ -86,7 +98,12 @@ export class AuthService {
     }
 
     async getSessions(): Promise<Session[]> {
-        const sessions = await this.credentialRepository.find()
+        const sessions = await this.credentialRepository.find({
+            order: {
+                active: 'DESC',
+                updatedAt: 'DESC',
+            },
+        })
         return sessions.map(this.buildSession)
     }
 
@@ -108,7 +125,9 @@ export class AuthService {
     async deactivateSession(id: number): Promise<boolean> {
         const session = await this.credentialRepository.findOne({ where: { id } })
 
-        if (!session?.active) return false
+        if (!session?.active || !session.value?.me?.id) {
+            return false
+        }
 
         session.active = false
         await this.credentialRepository.save(session)
@@ -119,13 +138,21 @@ export class AuthService {
     }
 
     private buildSession(credential: AuthCredential): Session {
+        let user: { name?: string; phone?: string }
+        if (credential.value?.me) {
+            user = {
+                name: credential.value.me.name,
+                phone: credential.value.me.id.split(':')[0],
+            }
+        }
+
         return {
             id: credential.id,
             active: credential.active,
             createdAt: credential.createdAt,
             updatedAt: credential.updatedAt,
             connected: !!credential.value?.me?.id,
-            user: credential.value?.me,
+            user,
             platform: credential.value?.platform,
         }
     }

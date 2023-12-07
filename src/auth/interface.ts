@@ -6,6 +6,9 @@ export interface Session {
     createdAt: Date
     updatedAt: Date
     connected: boolean
-    user?: Contact
+    user?: {
+        name?: string
+        phone?: string
+    }
     platform?: string
 }
