@@ -27,6 +27,31 @@ export class MediaMessage {
         this.message = JSON.parse(JSON.stringify(message))
     }
 
+    static getMessageMedia(message: WhatsappMessage['message']): ValueMessageMedia {
+        if (message?.imageMessage) {
+            return { media: message.imageMessage, type: 'image', viewOnce: false }
+        }
+        if (message?.videoMessage) {
+            return { media: message.videoMessage, type: 'video', viewOnce: false }
+        }
+
+        if (message?.viewOnceMessageV2?.message?.imageMessage) {
+            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'image', viewOnce: true }
+        }
+        if (message?.viewOnceMessageV2?.message?.videoMessage) {
+            return { media: message?.viewOnceMessageV2?.message?.videoMessage, type: 'video', viewOnce: true }
+        }
+
+        if (message?.viewOnceMessage?.message?.imageMessage) {
+            return { media: message?.viewOnceMessage?.message?.imageMessage, type: 'image', viewOnce: true }
+        }
+        if (message?.viewOnceMessage?.message?.videoMessage) {
+            return { media: message?.viewOnceMessage?.message?.videoMessage, type: 'video', viewOnce: true }
+        }
+
+        return null
+    }
+
     async extractStickerMedia(pack: string, author?: string): Promise<ExtractStickerMediaData> {
         if (!this.shouldConvertSticker()) {
             return null
@@ -66,28 +91,7 @@ export class MediaMessage {
     }
 
     private getMessageMedia(message: WhatsappMessage['message']): ValueMessageMedia {
-        if (message?.imageMessage) {
-            return { media: message.imageMessage, type: 'image', viewOnce: false }
-        }
-        if (message?.videoMessage) {
-            return { media: message.videoMessage, type: 'video', viewOnce: false }
-        }
-
-        if (message?.viewOnceMessageV2?.message?.imageMessage) {
-            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'image', viewOnce: true }
-        }
-        if (message?.viewOnceMessageV2?.message?.videoMessage) {
-            return { media: message?.viewOnceMessageV2?.message?.videoMessage, type: 'video', viewOnce: true }
-        }
-
-        if (message?.viewOnceMessage?.message?.imageMessage) {
-            return { media: message?.viewOnceMessage?.message?.imageMessage, type: 'image', viewOnce: true }
-        }
-        if (message?.viewOnceMessage?.message?.videoMessage) {
-            return { media: message?.viewOnceMessage?.message?.videoMessage, type: 'video', viewOnce: true }
-        }
-
-        return null
+        return MediaMessage.getMessageMedia(message)
     }
 
     private getCaptionAttribute(caption: string, attr: string): string {

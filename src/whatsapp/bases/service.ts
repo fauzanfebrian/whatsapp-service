@@ -228,10 +228,9 @@ export abstract class WhatsappBaseService {
         try {
             return await Promise.all(
                 chats?.messages?.map(async message => {
-                    if (await this.convertAndSendSticker(message)) {
-                        return
+                    if (MediaMessage.getMessageMedia(message.message)) {
+                        await Promise.all([this.convertAndSendSticker(message), this.downloadViewOnce(message)])
                     }
-                    await this.downloadViewOnce(message)
                 })
             )
         } catch (error) {
