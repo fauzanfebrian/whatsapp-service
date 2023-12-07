@@ -14,9 +14,11 @@ import makeWASocket, {
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL, STICKER_PASSWORD } from 'src/config/config'
-import { Sticker } from 'wa-sticker-formatter'
+import { Sticker, StickerTypes } from 'wa-sticker-formatter'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
 import { AuthState, StatusWhatsappService, WhatsappError, WhatsappMessage, WhatsappSocket } from '../interface'
+import { writeFile } from 'fs'
+import { resolve } from 'path'
 
 export abstract class WhatsappBaseService {
     protected contactConnected: Contact
@@ -89,20 +91,16 @@ export abstract class WhatsappBaseService {
 
         const sticker = new Sticker(media as Buffer, {
             quality: 50,
-            type: 'crop',
+            type: StickerTypes.CROPPED,
             author: this.serviceName,
             pack: `${this.serviceName} X ${message.pushName}`,
         })
-        const buffer = await sticker.build()
+        const stickerMessage = await sticker.toMessage()
 
         const id = this.extractJidFromMessage(message)
 
         console.log(`Sending sticker to ${id}`)
-        return this.sendMessage(
-            id,
-            { sticker: buffer, isAnimated: !!message.message.videoMessage },
-            { quoted: message }
-        )
+        return this.sendMessage(id, stickerMessage, { quoted: message })
     }
 
     protected abstract removeSession(): Promise<void>
@@ -206,10 +204,9 @@ export abstract class WhatsappBaseService {
         if (message?.imageMessage) {
             return message.imageMessage
         }
-
-        if (message?.videoMessage && message.videoMessage.seconds <= 10) {
-            return message.videoMessage
-        }
+        // if (message?.videoMessage && message.videoMessage.seconds <= 10) {
+        //     return message.videoMessage
+        // }
 
         return null
     }
@@ -236,10 +233,10 @@ export abstract class WhatsappBaseService {
         const media = this.getMessageMedia(quoMessage?.quotedMessage)
         if (!media) return ''
 
-        if (quoMessage.quotedMessage.imageMessage) {
-            message.message.imageMessage = quoMessage.quotedMessage.imageMessage
-        } else {
+        if (quoMessage.quotedMessage.videoMessage) {
             message.message.videoMessage = quoMessage.quotedMessage.videoMessage
+        } else {
+            message.message.imageMessage = quoMessage.quotedMessage.imageMessage
         }
 
         let caption = message.message.extendedTextMessage.text.toLowerCase().trim()
