@@ -11,6 +11,7 @@ interface ExtractStickerMediaData {
 interface ValueMessageMedia {
     media: proto.Message.IImageMessage | proto.Message.IVideoMessage
     type: 'image' | 'video'
+    viewOnce: boolean
 }
 
 export class MediaMessage {
@@ -40,18 +41,30 @@ export class MediaMessage {
         return { targetJid, media: buffer }
     }
 
+    async extractViewOnceMedia(): Promise<{ media: Buffer; type: 'image' | 'video'; targetJid: string } | null> {
+        const targetJid = this.extractJidFromMessage()
+
+        if (!this.shouldConvertViewOnceMedia() || !targetJid) {
+            return null
+        }
+
+        const media = await downloadMediaMessage(this.message, 'buffer', {})
+
+        return { targetJid, media: media as Buffer, type: this.getMessageMedia(this.message.message)?.type }
+    }
+
     private getMessageMedia(message: WhatsappMessage['message']): ValueMessageMedia {
         if (message?.imageMessage) {
-            return { media: message.imageMessage, type: 'image' }
+            return { media: message.imageMessage, type: 'image', viewOnce: false }
         }
         if (message?.viewOnceMessageV2?.message?.imageMessage) {
-            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'image' }
+            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'image', viewOnce: true }
         }
         if (message?.viewOnceMessageV2?.message?.videoMessage) {
-            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'video' }
+            return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'video', viewOnce: true }
         }
         if (message?.videoMessage) {
-            return { media: message.videoMessage, type: 'video' }
+            return { media: message.videoMessage, type: 'video', viewOnce: false }
         }
 
         return null
@@ -107,7 +120,7 @@ export class MediaMessage {
     }
 
     private shouldConvertSticker(): boolean {
-        let caption = this.getMessageMedia(this.message.message)?.media?.caption.toLowerCase().trim()
+        let caption = this.getMessageMedia(this.message.message)?.media?.caption?.toLowerCase()?.trim?.()
 
         const quotedCaption = this.checkQuotedMessage()
         if (quotedCaption) {
@@ -119,7 +132,21 @@ export class MediaMessage {
             return false
         }
 
-        if (!caption.startsWith('#convert_sticker') && !caption.startsWith('#sticker')) {
+        if (!caption?.startsWith('#convert_sticker') && !caption?.startsWith('#sticker')) {
+            return false
+        }
+
+        return this.checkPassword(caption)
+    }
+
+    private shouldConvertViewOnceMedia(): boolean {
+        const caption = this.checkQuotedMessage()
+
+        if (!this.getMessageMedia(this.message.message)?.viewOnce) {
+            return false
+        }
+
+        if (!caption?.startsWith('#download_view_once')) {
             return false
         }
 

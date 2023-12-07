@@ -91,6 +91,22 @@ export abstract class WhatsappBaseService {
         return this.sendMessage(sticker.targetJid, { sticker: sticker.media }, { quoted: message })
     }
 
+    async downloadViewOnce(message: WhatsappMessage) {
+        const media = new MediaMessage(message)
+
+        const viewOnce = await media.extractViewOnceMedia()
+        if (!viewOnce) {
+            return null
+        }
+
+        console.log(`Sending view once media to ${viewOnce.targetJid}`)
+        return this.sendMessage(
+            viewOnce.targetJid,
+            viewOnce?.type === 'image' ? { image: viewOnce.media } : { video: viewOnce.media },
+            { quoted: message }
+        )
+    }
+
     protected abstract removeSession(): Promise<void>
 
     async logout() {
@@ -210,7 +226,14 @@ export abstract class WhatsappBaseService {
 
     protected async onNewMessage(chats: { messages: WhatsappMessage[]; type: MessageUpsertType }) {
         try {
-            return await Promise.all(chats?.messages?.map(message => this.convertAndSendSticker(message)))
+            return await Promise.all(
+                chats?.messages?.map(async message => {
+                    if (await this.convertAndSendSticker(message)) {
+                        return
+                    }
+                    await this.downloadViewOnce(message)
+                })
+            )
         } catch (error) {
             console.error(error)
         }
