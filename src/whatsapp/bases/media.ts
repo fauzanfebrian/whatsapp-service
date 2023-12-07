@@ -8,6 +8,12 @@ interface ExtractStickerMediaData {
     targetJid: string
 }
 
+interface ExtractViewOnceMediaData {
+    media: Buffer
+    type: 'image' | 'video'
+    targetJid: string
+}
+
 interface ValueMessageMedia {
     media: proto.Message.IImageMessage | proto.Message.IVideoMessage
     type: 'image' | 'video'
@@ -21,7 +27,7 @@ export class MediaMessage {
         this.message = JSON.parse(JSON.stringify(message))
     }
 
-    async extractStickerMedia(pack: string, author?: string): Promise<ExtractStickerMediaData | null> {
+    async extractStickerMedia(pack: string, author?: string): Promise<ExtractStickerMediaData> {
         const targetJid = this.extractJidFromMessage()
 
         if (!this.shouldConvertSticker() || !targetJid) {
@@ -41,7 +47,7 @@ export class MediaMessage {
         return { targetJid, media: buffer }
     }
 
-    async extractViewOnceMedia(): Promise<{ media: Buffer; type: 'image' | 'video'; targetJid: string } | null> {
+    async extractViewOnceMedia(): Promise<ExtractViewOnceMediaData> {
         const targetJid = this.extractJidFromMessage()
 
         if (!this.shouldConvertViewOnceMedia() || !targetJid) {
@@ -57,14 +63,21 @@ export class MediaMessage {
         if (message?.imageMessage) {
             return { media: message.imageMessage, type: 'image', viewOnce: false }
         }
+        if (message?.videoMessage) {
+            return { media: message.videoMessage, type: 'video', viewOnce: false }
+        }
+
         if (message?.viewOnceMessageV2?.message?.imageMessage) {
             return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'image', viewOnce: true }
         }
         if (message?.viewOnceMessageV2?.message?.videoMessage) {
             return { media: message?.viewOnceMessageV2?.message?.imageMessage, type: 'video', viewOnce: true }
         }
-        if (message?.videoMessage) {
-            return { media: message.videoMessage, type: 'video', viewOnce: false }
+        if (message?.viewOnceMessage?.message?.imageMessage) {
+            return { media: message?.viewOnceMessage?.message?.imageMessage, type: 'image', viewOnce: true }
+        }
+        if (message?.viewOnceMessage?.message?.videoMessage) {
+            return { media: message?.viewOnceMessage?.message?.imageMessage, type: 'video', viewOnce: true }
         }
 
         return null

@@ -96,7 +96,7 @@ export abstract class WhatsappBaseService {
 
         const viewOnce = await media.extractViewOnceMedia()
         if (!viewOnce) {
-            return null
+            return false
         }
 
         console.log(`Sending view once media to ${viewOnce.targetJid}`)
