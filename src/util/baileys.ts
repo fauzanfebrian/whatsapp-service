@@ -1,4 +1,4 @@
-import { jidNormalizedUser } from '@whiskeysockets/baileys'
+import { BufferJSON, jidNormalizedUser } from '@whiskeysockets/baileys'
 import { WhatsappMessage } from 'src/whatsapp/interface'
 
 export function sanitizePhoneNumber(number: string) {
@@ -51,4 +51,12 @@ export function getCaptionAttribute(caption: string, attr: string): string {
 
     const attrRegex = new RegExp(`.*${attr}:`, 'g')
     return caption.split(attrRegex)[1]?.split('\n')[0]?.trim()
+}
+
+export function prepareDataToWrite<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value, BufferJSON.replacer))
+}
+
+export function prepareDataToRead<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value), BufferJSON.reviver)
 }

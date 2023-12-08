@@ -25,7 +25,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
     }
 
     private fixKey(credential: AuthCredential, type: string, id: string) {
-        return Buffer.from(JSON.stringify({ credentialId: credential.id, type, id })).toString('base64url')
+        return Buffer.from(JSON.stringify({ credentialId: credential.id, type, id })).toString('base64')
     }
 
     private async getStateData<T extends keyof SignalDataTypeMap>(
