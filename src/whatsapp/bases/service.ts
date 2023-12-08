@@ -14,7 +14,14 @@ import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL } from 'src/config/config'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
-import { AuthState, StatusWhatsappService, WhatsappError, WhatsappMessage, WhatsappSocket } from '../interface'
+import {
+    AuthState,
+    NewMessageListener,
+    StatusWhatsappService,
+    WhatsappError,
+    WhatsappMessage,
+    WhatsappSocket,
+} from '../interface'
 import { MediaMessage } from './media'
 
 export abstract class WhatsappBaseService {
@@ -243,16 +250,16 @@ export abstract class WhatsappBaseService {
 
     protected async onNewMessage(chats: { messages: WhatsappMessage[]; type: MessageUpsertType }) {
         try {
-            return await Promise.all(
-                chats?.messages?.map(async message => {
-                    const listenerTasks = [
-                        this.convertAndSendSticker(message),
-                        this.downloadViewOnce(message),
-                        // this.forwardViewOnce(message),
-                    ]
-                    await Promise.all(listenerTasks)
-                })
-            )
+            const newMessageListeners = async (message: WhatsappMessage) => {
+                return await Promise.all([
+                    this.convertAndSendSticker(message),
+                    this.downloadViewOnce(message),
+                    // uncomment this if you want forward every view once come
+                    // message => this.forwardViewOnce(message)
+                ])
+            }
+
+            return await Promise.all(chats?.messages?.map(async message => newMessageListeners(message)))
         } catch (error) {
             console.error(error)
         }

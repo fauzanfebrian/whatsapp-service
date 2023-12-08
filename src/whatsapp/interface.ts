@@ -1,4 +1,4 @@
-import makeWASocket, { AuthenticationState, Contact, proto } from '@whiskeysockets/baileys'
+import makeWASocket, { AuthenticationState, Contact, WAMediaUpload, proto } from '@whiskeysockets/baileys'
 
 export interface WhatsappSocket extends ReturnType<typeof makeWASocket> {}
 
@@ -25,3 +25,27 @@ export interface AuthState {
     state: AuthenticationState
     saveCreds: () => Promise<void>
 }
+
+export interface ExtractStickerMediaData {
+    message: {
+        sticker: WAMediaUpload
+        isAnimated?: boolean
+    }
+    targetJid: string
+}
+
+export interface ExtractViewOnceMediaData {
+    message: {
+        forward: WhatsappMessage
+        force?: boolean
+    }
+    targetJid: string
+}
+
+export interface ValueMessageMedia {
+    media: proto.Message.IImageMessage | proto.Message.IVideoMessage
+    type: 'image' | 'video'
+    viewOnce: boolean
+}
+
+export type NewMessageListener = (message: WhatsappMessage) => Promise<any>

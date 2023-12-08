@@ -1,29 +1,7 @@
-import { WAMediaUpload, downloadMediaMessage, proto } from '@whiskeysockets/baileys'
+import { downloadMediaMessage } from '@whiskeysockets/baileys'
 import { BOT_PASSWORD } from 'src/config/config'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
-import { WhatsappMessage } from '../interface'
-
-interface ExtractStickerMediaData {
-    message: {
-        sticker: WAMediaUpload
-        isAnimated?: boolean
-    }
-    targetJid: string
-}
-
-interface ExtractViewOnceMediaData {
-    message: {
-        forward: WhatsappMessage
-        force?: boolean
-    }
-    targetJid: string
-}
-
-interface ValueMessageMedia {
-    media: proto.Message.IImageMessage | proto.Message.IVideoMessage
-    type: 'image' | 'video'
-    viewOnce: boolean
-}
+import { ExtractStickerMediaData, ExtractViewOnceMediaData, ValueMessageMedia, WhatsappMessage } from '../interface'
 
 export class MediaMessage {
     private message: WhatsappMessage
