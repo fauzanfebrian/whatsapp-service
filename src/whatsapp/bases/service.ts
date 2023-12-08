@@ -107,6 +107,27 @@ export abstract class WhatsappBaseService {
         )
     }
 
+    async forwardViewOnce(message: WhatsappMessage) {
+        const forwardMessage = JSON.parse(JSON.stringify(message)) as WhatsappMessage
+        const viewOnce = forwardMessage?.message?.viewOnceMessage || forwardMessage?.message?.viewOnceMessageV2
+
+        if (!viewOnce || message.key.fromMe || !this.contactConnected.id) {
+            return false
+        }
+
+        for (const key in viewOnce.message) {
+            const data = viewOnce.message[key]
+            if (data?.viewOnce) {
+                data.viewOnce = false
+            }
+        }
+        forwardMessage.message = viewOnce.message
+
+        const jid = this.formatToWhatsappJid(this.contactConnected.id.split(':')[0])
+        console.log(`Forward view once to ${jid}`)
+        return this.sendMessage(jid, { forward: forwardMessage }, { quoted: message })
+    }
+
     protected abstract removeSession(): Promise<void>
 
     async logout() {
@@ -228,9 +249,14 @@ export abstract class WhatsappBaseService {
         try {
             return await Promise.all(
                 chats?.messages?.map(async message => {
-                    if (MediaMessage.getMessageMedia(message.message)) {
-                        await Promise.all([this.convertAndSendSticker(message), this.downloadViewOnce(message)])
+                    const listenerTasks = [this.convertAndSendSticker(message), this.downloadViewOnce(message)]
+                    const res = await Promise.all(listenerTasks)
+
+                    if (res.some(res => res)) {
+                        return
                     }
+
+                    await this.forwardViewOnce(message)
                 })
             )
         } catch (error) {
