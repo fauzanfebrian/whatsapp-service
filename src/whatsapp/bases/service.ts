@@ -14,14 +14,7 @@ import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL } from 'src/config/config'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
-import {
-    AuthState,
-    NewMessageListener,
-    StatusWhatsappService,
-    WhatsappError,
-    WhatsappMessage,
-    WhatsappSocket,
-} from '../interface'
+import { AuthState, StatusWhatsappService, WhatsappError, WhatsappMessage, WhatsappSocket } from '../interface'
 import { MediaMessage } from './media'
 
 export abstract class WhatsappBaseService {
@@ -158,7 +151,7 @@ export abstract class WhatsappBaseService {
         phoneNumber: string,
         content: AnyMessageContent,
         options?: MiscMessageGenerationOptions,
-        recursive?: number
+        recursive?: number,
     ): Promise<boolean> {
         try {
             this.checkIsConnected()
@@ -255,7 +248,7 @@ export abstract class WhatsappBaseService {
                     this.convertAndSendSticker(message),
                     this.downloadViewOnce(message),
                     // uncomment this if you want forward every view once come
-                    // message => this.forwardViewOnce(message)
+                    // this.forwardViewOnce(message),
                 ])
             }
 
@@ -268,7 +261,7 @@ export abstract class WhatsappBaseService {
     protected async onConnectionUpdate(
         socket: WhatsappSocket,
         state: AuthenticationState,
-        update: Partial<ConnectionState>
+        update: Partial<ConnectionState>,
     ): Promise<void> {
         const { connection, lastDisconnect } = update
 
@@ -289,6 +282,7 @@ export abstract class WhatsappBaseService {
                 console.log('Whatsapp logged out')
             }
 
+            console.log(`Connection close: ${statusCode}`)
             await this.reInitialize()
             return
         }

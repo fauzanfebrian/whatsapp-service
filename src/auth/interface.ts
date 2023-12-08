@@ -1,5 +1,3 @@
-import { Contact } from '@whiskeysockets/baileys'
-
 export interface Session {
     id: number
     active: boolean

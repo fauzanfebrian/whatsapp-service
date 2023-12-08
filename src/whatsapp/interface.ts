@@ -1,6 +1,6 @@
 import makeWASocket, { AuthenticationState, Contact, WAMediaUpload, proto } from '@whiskeysockets/baileys'
 
-export interface WhatsappSocket extends ReturnType<typeof makeWASocket> {}
+export type WhatsappSocket = ReturnType<typeof makeWASocket>
 
 export class WhatsappError extends Error {
     constructor(error: string) {

@@ -31,7 +31,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
     private async getStateData<T extends keyof SignalDataTypeMap>(
         credential: AuthCredential,
         type: T,
-        ids: string[]
+        ids: string[],
     ): Promise<Record<string, SignalDataTypeMap[T]>> {
         const data: Record<string, SignalDataTypeMap[T]> = {}
 
@@ -44,7 +44,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
                 }
 
                 data[id] = value
-            })
+            }),
         )
 
         return data
@@ -60,7 +60,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
                 tasks.push(
                     value
                         ? authService.setStateValue(credential, key, value)
-                        : authService.removeStateValue(credential, key)
+                        : authService.removeStateValue(credential, key),
                 )
             }
         }

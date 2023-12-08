@@ -40,7 +40,7 @@ export class AuthService {
         const credential = await this.credentialRepository.save(
             this.credentialRepository.create({
                 active: true,
-            })
+            }),
         )
 
         return credential
@@ -84,7 +84,7 @@ export class AuthService {
                 credentialId: credential.id,
                 key,
                 value,
-            })
+            }),
         )
     }
 

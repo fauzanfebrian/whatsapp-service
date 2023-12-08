@@ -11,8 +11,6 @@ import {
     JoinColumn,
     ManyToOne,
     PrimaryColumn,
-    PrimaryGeneratedColumn,
-    Unique,
     UpdateDateColumn,
 } from 'typeorm'
 import { AuthCredential } from './credential'
