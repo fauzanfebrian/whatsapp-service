@@ -23,14 +23,14 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
 ### Bot Triggers
 
 1. Sticker Bot
-    - Every WhatsApp image message appears with the caption #sticker or #convert_sticker. The bot then immediately
+    - Every WhatsApp image message appears with the caption `#sticker` or `#convert_sticker`. The bot then immediately
       converts and sends it to the sender.
-    - Every WhatsApp image message replied with the caption #sticker or #convert_sticker. The bot then immediately
+    - Every WhatsApp image message replied with the caption `#sticker` or `#convert_sticker`. The bot then immediately
       converts and sends it to the sender.
 2. View once downloader Bot
-    - Every WhatsApp view once message appears with the caption #download_view_once. The bot then immediately converts
+    - Every WhatsApp view once message appears with the caption `#download_view_once`. The bot then immediately converts
       and sends it to the
-    - Every WhatsApp view once message replied with the caption #download_view_once. The bot then immediately converts
+    - Every WhatsApp view once message replied with the caption `#download_view_once`. The bot then immediately converts
       and sends it to the sender.
 3. View once forwarder Bot
     - Every view once message that appears is immediately converted and sent to the authenticated user.
@@ -45,7 +45,7 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
 
 1. Clone the repository.
 2. Install dependencies.
-3. Copy example.env to .env and replace the values with the required configurations.
+3. Copy `example.env` to `.env` and replace the values with the required configurations.
 4. Run the application.
 5. Link WhatsApp to the application via the QR code displayed in the terminal (set the environment variable QR_TERMINAL
    to true).
