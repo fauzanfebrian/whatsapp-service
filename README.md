@@ -8,13 +8,7 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
 
 ## Core Features
 
-1. REST APIs send messages
-
-    - Text
-    - Images
-    - Locations
-    - Etc
-
+1. REST APIs send messages, including text, images, locations, etc
 2. Sticker Bot
 
     > Bot for converting images to stickers.
