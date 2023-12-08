@@ -27,7 +27,7 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
       to the sender
 3. Bot forward view once
     - every view once message appeared then bot immediately convert and send to authenticated user
-    - NB. this is not default bot you should update the code to run it
+    - NB. this is not default bot, you should update the code to run it
 
 ## Auth Method
 
