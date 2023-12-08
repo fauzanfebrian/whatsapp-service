@@ -8,11 +8,14 @@ import makeWASocket, {
     MiscMessageGenerationOptions,
     delay,
     fetchLatestBaileysVersion,
+    jidNormalizedUser,
     promiseTimeout,
+    jidDecode,
 } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL } from 'src/config/config'
+import { formatToJid, sanitizePhoneNumber } from 'src/util/format'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
 import { AuthState, StatusWhatsappService, WhatsappError, WhatsappMessage, WhatsappSocket } from '../interface'
 import { MediaMessage } from './media'
@@ -47,7 +50,7 @@ export abstract class WhatsappBaseService {
     }
 
     async sendContact(dto: SendContactDto) {
-        const waid = this.formatToWhatsappJid(dto.phoneNumber).replace('@s.whatsapp.net', '')
+        const waid = sanitizePhoneNumber(dto.phoneNumber)
 
         const vcard =
             'BEGIN:VCARD\n' +
@@ -119,7 +122,7 @@ export abstract class WhatsappBaseService {
         }
         forwardMessage.message = viewOnce.message
 
-        const targetJid = this.formatToWhatsappJid(this.contactConnected.id.split(':')[0])
+        const targetJid = jidNormalizedUser(this.contactConnected.id)
         console.log(`Forward view once to ${targetJid}`)
         return this.sendMessage(targetJid, { forward: forwardMessage }, { quoted: message })
     }
@@ -159,7 +162,7 @@ export abstract class WhatsappBaseService {
             // create 1 minute timeout for whatsapp send message
             await promiseTimeout(1000 * 15, async (resolve, reject) => {
                 try {
-                    const jid = this.formatToWhatsappJid(phoneNumber)
+                    const jid = formatToJid(phoneNumber)
                     await this.socket.presenceSubscribe(jid)
                     await delay(3)
                     await this.socket.sendPresenceUpdate('composing', jid)
@@ -205,40 +208,6 @@ export abstract class WhatsappBaseService {
         socket.ev.on('creds.update', saveCreds)
 
         return socket
-    }
-
-    protected formatToIndonesian(number: string) {
-        if (typeof number == 'undefined' || number == '') {
-            return ''
-        }
-
-        number = number.split(':')[0]
-        number = number.replace(/\D/g, '')
-        if (number.startsWith('+')) {
-            number = number.substring(1)
-        }
-        if (number.startsWith('62')) {
-            number = '0' + number.substring(2)
-        }
-        return number
-    }
-
-    protected formatToWhatsappJid(number: string) {
-        if (typeof number == 'undefined' || number == '') {
-            return ''
-        }
-
-        number = number.replace(/\D/g, '')
-        if (number.startsWith('+')) {
-            number = number.substring(1)
-        }
-        if (number.startsWith('08')) {
-            number = '62' + number.substring(1)
-        }
-        if (!number.endsWith('@s.whatsapp.net')) {
-            number = number + '@s.whatsapp.net'
-        }
-        return number
     }
 
     protected async onNewMessage(chats: { messages: WhatsappMessage[]; type: MessageUpsertType }) {
@@ -289,7 +258,7 @@ export abstract class WhatsappBaseService {
 
         if (connection === 'open') {
             const user = { ...state.creds.me }
-            user.id = this.formatToIndonesian(user?.id)
+            user.id = jidDecode(user?.id)?.user
 
             this.contactConnected = user
             await socket.sendPresenceUpdate('unavailable')

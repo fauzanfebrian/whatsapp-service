@@ -1,5 +1,6 @@
 import { downloadMediaMessage } from '@whiskeysockets/baileys'
 import { BOT_PASSWORD } from 'src/config/config'
+import { formatToJid } from 'src/util/format'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
 import { ExtractStickerMediaData, ExtractViewOnceMediaData, ValueMessageMedia, WhatsappMessage } from '../interface'
 
@@ -117,20 +118,22 @@ export class MediaMessage {
     }
 
     private extractJidFromMessage(): string {
-        if (this.message?.quoted?.sendToJid?.includes('@s.whatsapp.net')) {
-            return this.message.quoted.sendToJid
+        const extract = () => {
+            if (this.message?.quoted?.sendToJid?.includes('@s.whatsapp.net')) {
+                return this.message.quoted.sendToJid
+            }
+            if (this.message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
+                return this.message.key.remoteJid
+            }
+            if (
+                this.message?.key?.participant?.includes('@s.whatsapp.net') &&
+                this.message?.key?.remoteJid?.includes('@g.us')
+            ) {
+                return this.message.key.remoteJid
+            }
+            return ''
         }
-        if (this.message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
-            return this.message.key.remoteJid
-        }
-        if (
-            this.message?.key?.participant?.includes('@s.whatsapp.net') &&
-            this.message?.key?.remoteJid?.includes('@g.us')
-        ) {
-            return this.message.key.participant
-        }
-
-        return ''
+        return formatToJid(extract())
     }
 
     private shouldConvertSticker(): boolean {
