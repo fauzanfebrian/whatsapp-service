@@ -8,9 +8,9 @@ import makeWASocket, {
     MiscMessageGenerationOptions,
     delay,
     fetchLatestBaileysVersion,
+    jidDecode,
     jidNormalizedUser,
     promiseTimeout,
-    jidDecode,
 } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
@@ -210,18 +210,18 @@ export abstract class WhatsappBaseService {
         return socket
     }
 
+    protected newMessageListeners = async (message: WhatsappMessage) => {
+        return await Promise.all([
+            this.convertAndSendSticker(message),
+            this.downloadViewOnce(message),
+            // uncomment this if you want forward every view once come
+            // this.forwardViewOnce(message),
+        ])
+    }
+
     protected async onNewMessage(chats: { messages: WhatsappMessage[]; type: MessageUpsertType }) {
         try {
-            const newMessageListeners = async (message: WhatsappMessage) => {
-                return await Promise.all([
-                    this.convertAndSendSticker(message),
-                    this.downloadViewOnce(message),
-                    // uncomment this if you want forward every view once come
-                    // this.forwardViewOnce(message),
-                ])
-            }
-
-            return await Promise.all(chats?.messages?.map(async message => newMessageListeners(message)))
+            return await Promise.all(chats?.messages?.map(async message => this.newMessageListeners(message)))
         } catch (error) {
             console.error(error)
         }
