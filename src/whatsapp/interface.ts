@@ -14,11 +14,13 @@ export interface StatusWhatsappService {
     qrcode?: string
 }
 
+export interface WhatsappMessageQuoted {
+    sendToJid?: string
+    message?: string
+}
+
 export interface WhatsappMessage extends proto.IWebMessageInfo {
-    quoted?: {
-        sendToJid?: string
-        message?: string
-    }
+    quoted?: WhatsappMessageQuoted
 }
 
 export interface AuthState {

@@ -1,8 +1,14 @@
 import { downloadMediaMessage } from '@whiskeysockets/baileys'
 import { BOT_PASSWORD } from 'src/config/config'
-import { formatToJid } from 'src/util/format'
+import { extractJidFromMessage, getCaptionAttribute } from 'src/util/baileys'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
-import { ExtractStickerMediaData, ExtractViewOnceMediaData, ValueMessageMedia, WhatsappMessage } from '../interface'
+import {
+    ExtractStickerMediaData,
+    ExtractViewOnceMediaData,
+    ValueMessageMedia,
+    WhatsappMessage,
+    WhatsappMessageQuoted,
+} from '../interface'
 
 export class MediaMessage {
     private message: WhatsappMessage
@@ -41,7 +47,7 @@ export class MediaMessage {
             return null
         }
 
-        const targetJid = this.extractJidFromMessage()
+        const targetJid = extractJidFromMessage(this.message)
         if (!targetJid) {
             return null
         }
@@ -64,7 +70,7 @@ export class MediaMessage {
             return null
         }
 
-        const targetJid = this.extractJidFromMessage()
+        const targetJid = extractJidFromMessage(this.message)
         if (!targetJid) {
             return null
         }
@@ -82,70 +88,45 @@ export class MediaMessage {
         return { targetJid, message: { forward: this.message } }
     }
 
-    private getMessageMedia(message: WhatsappMessage['message']): ValueMessageMedia {
-        return MediaMessage.getMessageMedia(message)
-    }
-
-    private getCaptionAttribute(caption: string, attr: string): string {
-        if (!caption?.includes(`${attr}:`)) return ''
-
-        const attrRegex = new RegExp(`.*${attr}:`, 'g')
-        return caption.split(attrRegex)[1]?.split('\n')[0]?.trim()
-    }
-
     private checkPassword(caption: string): boolean {
         if (!BOT_PASSWORD) return true
 
-        return this.getCaptionAttribute(caption, 'password') === BOT_PASSWORD
+        return getCaptionAttribute(caption, 'password') === BOT_PASSWORD
     }
 
     private checkQuotedMessage() {
         const quoMessage = this.message?.message?.extendedTextMessage
 
-        const media = this.getMessageMedia(quoMessage?.contextInfo?.quotedMessage)
+        const media = MediaMessage.getMessageMedia(quoMessage?.contextInfo?.quotedMessage)
         if (!media) return
 
         const caption = quoMessage.text.toLowerCase().trim()
-        const destination = this.getCaptionAttribute(caption, 'destination')
+        const destination = getCaptionAttribute(caption, 'destination')
 
-        this.message.quoted = { message: caption }
-
-        if (destination === 'sender') {
-            this.message.quoted.sendToJid = quoMessage.contextInfo.participant
+        const quoted: WhatsappMessageQuoted = { message: caption }
+        switch (destination) {
+            case 'sender':
+                quoted.sendToJid = quoMessage.contextInfo.participant
+                break
+            case 'me':
+                quoted.sendToJid = this.message.key?.participant
+                break
         }
 
         this.message.message = quoMessage.contextInfo.quotedMessage
-    }
-
-    private extractJidFromMessage(): string {
-        const extract = () => {
-            if (this.message?.quoted?.sendToJid?.includes('@s.whatsapp.net')) {
-                return this.message.quoted.sendToJid
-            }
-            if (this.message?.key?.remoteJid?.includes('@s.whatsapp.net')) {
-                return this.message.key.remoteJid
-            }
-            if (
-                this.message?.key?.participant?.includes('@s.whatsapp.net') &&
-                this.message?.key?.remoteJid?.includes('@g.us')
-            ) {
-                return this.message.key.remoteJid
-            }
-            return ''
-        }
-        return formatToJid(extract())
+        this.message.quoted = quoted
     }
 
     private shouldConvertSticker(): boolean {
         this.checkQuotedMessage()
 
-        const stickerMedia = this.getMessageMedia(this.message.message)
+        const stickerMedia = MediaMessage.getMessageMedia(this.message.message)
 
         if (stickerMedia?.type !== 'image' || stickerMedia?.viewOnce) {
             return false
         }
 
-        const baseCaption = stickerMedia?.media?.caption || this.message?.quoted?.message
+        const baseCaption = this.message?.quoted?.message || stickerMedia?.media?.caption
         const caption = baseCaption?.toLowerCase()?.trim?.()
         if (!caption?.startsWith('#convert_sticker') && !caption?.startsWith('#sticker')) {
             return false
@@ -157,7 +138,7 @@ export class MediaMessage {
     private shouldConvertViewOnceMedia(): boolean {
         this.checkQuotedMessage()
 
-        const viewOnceMedia = this.getMessageMedia(this.message.message)
+        const viewOnceMedia = MediaMessage.getMessageMedia(this.message.message)
 
         if (!viewOnceMedia?.viewOnce) {
             return false
