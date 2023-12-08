@@ -1,16 +1,21 @@
-import { downloadMediaMessage, proto } from '@whiskeysockets/baileys'
+import { WAMediaUpload, downloadMediaMessage, proto } from '@whiskeysockets/baileys'
 import { BOT_PASSWORD } from 'src/config/config'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
 import { WhatsappMessage } from '../interface'
 
 interface ExtractStickerMediaData {
-    media: Buffer
+    message: {
+        sticker: WAMediaUpload
+        isAnimated?: boolean
+    }
     targetJid: string
 }
 
 interface ExtractViewOnceMediaData {
-    media: Buffer
-    type: 'image' | 'video'
+    message: {
+        forward: WhatsappMessage
+        force?: boolean
+    }
     targetJid: string
 }
 
@@ -72,7 +77,7 @@ export class MediaMessage {
         })
         const buffer = await sticker.toBuffer()
 
-        return { targetJid, media: buffer }
+        return { targetJid, message: { sticker: buffer } }
     }
 
     async extractViewOnceMedia(): Promise<ExtractViewOnceMediaData> {
@@ -85,9 +90,17 @@ export class MediaMessage {
             return null
         }
 
-        const media = await downloadMediaMessage(this.message, 'buffer', {})
+        const viewOnce = this.message?.message?.viewOnceMessage || this.message?.message?.viewOnceMessageV2
 
-        return { targetJid, media: media as Buffer, type: this.getMessageMedia(this.message.message)?.type }
+        for (const key in viewOnce.message) {
+            const data = viewOnce.message[key]
+            if (data?.viewOnce) {
+                data.viewOnce = false
+            }
+        }
+        this.message.message = viewOnce.message
+
+        return { targetJid, message: { forward: this.message } }
     }
 
     private getMessageMedia(message: WhatsappMessage['message']): ValueMessageMedia {
@@ -169,7 +182,7 @@ export class MediaMessage {
             return false
         }
 
-        const baseCaption = viewOnceMedia?.media?.caption || this.message?.quoted?.message
+        const baseCaption = this.message?.quoted?.message || viewOnceMedia?.media?.caption
         const caption = baseCaption?.toLowerCase()?.trim?.()
         if (!caption?.startsWith('#download_view_once')) {
             return false

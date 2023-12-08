@@ -88,7 +88,7 @@ export abstract class WhatsappBaseService {
         }
 
         console.log(`Sending sticker to ${sticker.targetJid}`)
-        return this.sendMessage(sticker.targetJid, { sticker: sticker.media }, { quoted: message })
+        return this.sendMessage(sticker.targetJid, sticker.message, { quoted: message })
     }
 
     async downloadViewOnce(message: WhatsappMessage) {
@@ -100,11 +100,7 @@ export abstract class WhatsappBaseService {
         }
 
         console.log(`Sending view once media to ${viewOnce.targetJid}`)
-        return this.sendMessage(
-            viewOnce.targetJid,
-            viewOnce?.type === 'image' ? { image: viewOnce.media } : { video: viewOnce.media },
-            { quoted: message }
-        )
+        return this.sendMessage(viewOnce.targetJid, viewOnce.message, { quoted: message })
     }
 
     async forwardViewOnce(message: WhatsappMessage) {
@@ -123,9 +119,9 @@ export abstract class WhatsappBaseService {
         }
         forwardMessage.message = viewOnce.message
 
-        const jid = this.formatToWhatsappJid(this.contactConnected.id.split(':')[0])
-        console.log(`Forward view once to ${jid}`)
-        return this.sendMessage(jid, { forward: forwardMessage }, { quoted: message })
+        const targetJid = this.formatToWhatsappJid(this.contactConnected.id.split(':')[0])
+        console.log(`Forward view once to ${targetJid}`)
+        return this.sendMessage(targetJid, { forward: forwardMessage }, { quoted: message })
     }
 
     protected abstract removeSession(): Promise<void>
@@ -249,14 +245,12 @@ export abstract class WhatsappBaseService {
         try {
             return await Promise.all(
                 chats?.messages?.map(async message => {
-                    const listenerTasks = [this.convertAndSendSticker(message), this.downloadViewOnce(message)]
-                    const res = await Promise.all(listenerTasks)
-
-                    if (res.some(res => res)) {
-                        return
-                    }
-
-                    await this.forwardViewOnce(message)
+                    const listenerTasks = [
+                        this.convertAndSendSticker(message),
+                        this.downloadViewOnce(message),
+                        // this.forwardViewOnce(message),
+                    ]
+                    await Promise.all(listenerTasks)
                 })
             )
         } catch (error) {
