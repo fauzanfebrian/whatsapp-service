@@ -100,11 +100,11 @@ export class MediaMessage {
         const media = MediaMessage.getMessageMedia(quoMessage?.contextInfo?.quotedMessage)
         if (!media) return
 
-        const caption = quoMessage.text.toLowerCase().trim()
+        const caption = quoMessage.text.trim()
         const destination = getCaptionAttribute(caption, 'destination')
 
         const quoted: WhatsappMessageQuoted = { message: caption }
-        switch (destination) {
+        switch (destination.toLowerCase()) {
             case 'sender':
                 quoted.sendToJid = quoMessage.contextInfo.participant
                 break
@@ -127,8 +127,11 @@ export class MediaMessage {
         }
 
         const baseCaption = this.message?.quoted?.message || stickerMedia?.media?.caption
-        const caption = baseCaption?.toLowerCase()?.trim?.()
-        if (!caption?.startsWith('#convert_sticker') && !caption?.startsWith('#sticker')) {
+        const caption = baseCaption?.trim?.()
+        if (
+            !caption?.toLowerCase()?.startsWith('#convert_sticker') &&
+            !caption?.toLowerCase()?.startsWith('#sticker')
+        ) {
             return false
         }
 
@@ -145,8 +148,8 @@ export class MediaMessage {
         }
 
         const baseCaption = this.message?.quoted?.message || viewOnceMedia?.media?.caption
-        const caption = baseCaption?.toLowerCase()?.trim?.()
-        if (!caption?.startsWith('#download_view_once')) {
+        const caption = baseCaption?.trim?.()
+        if (!caption?.toLowerCase()?.startsWith('#download_view_once')) {
             return false
         }
 
