@@ -1,4 +1,10 @@
-import makeWASocket, { AuthenticationState, Contact, WAMediaUpload, proto } from '@whiskeysockets/baileys'
+import makeWASocket, {
+    AuthenticationState,
+    Contact,
+    WAMediaUpload,
+    WAMessageUpdate,
+    proto,
+} from '@whiskeysockets/baileys'
 
 export type WhatsappSocket = ReturnType<typeof makeWASocket>
 
@@ -21,6 +27,10 @@ export interface WhatsappMessageQuoted {
 
 export interface WhatsappMessage extends proto.IWebMessageInfo {
     quoted?: WhatsappMessageQuoted
+}
+
+export interface WhatsappMessageUpdate extends WAMessageUpdate {
+    update: Partial<WhatsappMessage>
 }
 
 export interface AuthState {

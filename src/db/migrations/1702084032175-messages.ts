@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class Messages1702029572400 implements MigrationInterface {
-    name = 'Messages1702029572400'
+export class Messages1702084032175 implements MigrationInterface {
+    name = 'Messages1702084032175'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`
@@ -9,6 +9,7 @@ export class Messages1702029572400 implements MigrationInterface {
                 "key" character varying NOT NULL,
                 "value" json,
                 "credential_id" integer NOT NULL,
+                "sender" character varying NOT NULL,
                 "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_c8bdc6479dc84d0717f0c649197" PRIMARY KEY ("key")

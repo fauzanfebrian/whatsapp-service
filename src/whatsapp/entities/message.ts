@@ -31,6 +31,9 @@ export class Message {
     @Column()
     credentialId: number
 
+    @Column()
+    sender: string
+
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date
 
