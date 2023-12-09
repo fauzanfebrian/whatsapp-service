@@ -1,6 +1,6 @@
 import { downloadMediaMessage } from '@whiskeysockets/baileys'
 import { BOT_PASSWORD } from 'src/config/config'
-import { extractJidFromMessage, getCaptionAttribute } from 'src/util/baileys'
+import { deepCopy, extractJidFromMessage, getCaptionAttribute } from 'src/util/baileys'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
 import {
     ExtractStickerMediaData,
@@ -14,7 +14,7 @@ export class MediaMessage {
     private message: WhatsappMessage
 
     constructor(message: WhatsappMessage) {
-        this.message = JSON.parse(JSON.stringify(message))
+        this.message = deepCopy(message)
     }
 
     static getMessageMedia(message: WhatsappMessage['message']): ValueMessageMedia {

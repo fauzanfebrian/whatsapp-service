@@ -1,4 +1,4 @@
-import { BufferJSON, jidNormalizedUser } from '@whiskeysockets/baileys'
+import { BufferJSON, jidNormalizedUser, proto } from '@whiskeysockets/baileys'
 import { WhatsappMessage } from 'src/whatsapp/interface'
 
 export function sanitizePhoneNumber(number: string) {
@@ -62,7 +62,7 @@ export function prepareDataToRead<T>(value: T): T {
 }
 
 export function extractViewOnce(message: WhatsappMessage): WhatsappMessage {
-    message = JSON.parse(JSON.stringify(message))
+    message = deepCopy(message)
 
     const viewOnce = message?.message?.viewOnceMessage || message?.message?.viewOnceMessageV2
     if (!viewOnce) {
@@ -98,4 +98,12 @@ export function parseTimeStamp(message: WhatsappMessage): string {
     ].join(':')
 
     return `${formattedDate} ${formattedTime}`
+}
+
+export function deepCopy<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value, BufferJSON.replacer), BufferJSON.reviver)
+}
+
+export function isValidMessageSend(key: proto.IMessageKey): boolean {
+    return key?.remoteJid?.endsWith('@s.whatsapp.net') || key?.remoteJid?.endsWith('@g.us')
 }

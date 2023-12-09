@@ -1,7 +1,21 @@
-import { AuthenticationCreds, SignalDataSet, SignalDataTypeMap, initAuthCreds, proto } from '@whiskeysockets/baileys'
+import {
+    AuthenticationCreds,
+    SignalDataSet,
+    SignalDataTypeMap,
+    initAuthCreds,
+    isJidGroup,
+    proto,
+} from '@whiskeysockets/baileys'
 import { AuthCredential } from 'src/auth/entities/credential'
 import authService from 'src/auth/service'
-import { extractViewOnce, formatToJid, parseTimeStamp, sanitizePhoneNumber } from 'src/util/baileys'
+import {
+    deepCopy,
+    extractViewOnce,
+    formatToJid,
+    isValidMessageSend,
+    parseTimeStamp,
+    sanitizePhoneNumber,
+} from 'src/util/baileys'
 import whatsappMessageService from '../bases/message'
 import { WhatsappBaseService } from '../bases/service'
 import { AuthState, WhatsappMessage, WhatsappMessageUpdate } from '../interface'
@@ -36,7 +50,13 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
     async saveMessage(message: WhatsappMessage) {
         const jid = formatToJid(message?.key?.participant || message?.key?.remoteJid)
 
-        if (!jid || message.key.fromMe || !message.message || message.message.protocolMessage) {
+        if (
+            !isValidMessageSend(message.key) ||
+            !jid ||
+            message.key.fromMe ||
+            !message.message ||
+            message.message.protocolMessage
+        ) {
             return false
         }
 
@@ -46,13 +66,9 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
 
     async sendDeletedMessage(key: proto.IMessageKey, recursive?: number): Promise<boolean> {
         // set recursive set to 6 time because each recursive 5 second so in 30 seconds function will stop
-        if (recursive > 6) {
-            return false
-        }
-
         const jid = formatToJid(key?.participant || key?.remoteJid)
 
-        if (key.fromMe || !jid) {
+        if (recursive > 6 || !isValidMessageSend(key) || !jid || key.fromMe) {
             return false
         }
 
@@ -62,7 +78,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
             return false
         }
 
-        const forwardMessage = extractViewOnce(waMessage) || waMessage
+        const forwardMessage = extractViewOnce(waMessage) || deepCopy(waMessage)
         const messageResult = await this.sendMessage(
             this.contactConnected.id,
             { forward: forwardMessage },
@@ -72,7 +88,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
         const phoneNumber = sanitizePhoneNumber(jid)
 
         const descriptions = [
-            'Deleted Message',
+            isJidGroup(key.remoteJid) ? 'Deleted Group Message' : 'Deleted Message',
             `phone: ${phoneNumber}`,
             `name: ${waMessage.pushName}`,
             parseTimeStamp(waMessage),
