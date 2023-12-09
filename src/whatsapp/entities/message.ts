@@ -1,4 +1,4 @@
-import { AuthenticationCreds } from '@whiskeysockets/baileys'
+import { AuthCredential } from 'src/auth/entities/credential'
 import { prepareDataToRead, prepareDataToWrite } from 'src/util/baileys'
 import {
     AfterInsert,
@@ -9,20 +9,30 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    PrimaryGeneratedColumn,
+    JoinColumn,
+    ManyToOne,
+    PrimaryColumn,
     UpdateDateColumn,
 } from 'typeorm'
+import { WhatsappMessage } from '../interface'
 
-@Entity({ name: 'credentials' })
-export class AuthCredential {
-    @PrimaryGeneratedColumn()
-    id: number
+@Entity({ name: 'messages' })
+export class Message {
+    @PrimaryColumn()
+    key: string
 
     @Column({ nullable: true, type: 'json' })
-    value: AuthenticationCreds
+    value: WhatsappMessage
 
-    @Column({ default: false })
-    active: boolean
+    @ManyToOne(() => AuthCredential, credential => credential.id, { onDelete: 'CASCADE' })
+    @JoinColumn()
+    credential: AuthCredential
+
+    @Column()
+    credentialId: number
+
+    @Column()
+    sender: string
 
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date

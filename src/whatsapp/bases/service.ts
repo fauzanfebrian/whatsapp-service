@@ -8,16 +8,23 @@ import makeWASocket, {
     MiscMessageGenerationOptions,
     delay,
     fetchLatestBaileysVersion,
+    jidDecode,
     jidNormalizedUser,
     promiseTimeout,
-    jidDecode,
 } from '@whiskeysockets/baileys'
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL } from 'src/config/config'
-import { formatToJid, sanitizePhoneNumber } from 'src/util/baileys'
+import { extractViewOnce, formatToJid, sanitizePhoneNumber } from 'src/util/baileys'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
-import { AuthState, StatusWhatsappService, WhatsappError, WhatsappMessage, WhatsappSocket } from '../interface'
+import {
+    AuthState,
+    StatusWhatsappService,
+    WhatsappError,
+    WhatsappMessage,
+    WhatsappMessageUpdate,
+    WhatsappSocket,
+} from '../interface'
 import { MediaMessage } from './media'
 
 export abstract class WhatsappBaseService {
@@ -39,6 +46,7 @@ export abstract class WhatsappBaseService {
         this.socket.ev.removeAllListeners('connection.update')
         this.socket.ev.removeAllListeners('creds.update')
         this.socket.ev.removeAllListeners('messages.upsert')
+        this.socket.ev.removeAllListeners('messages.update')
 
         this.socket = await this.createNewSocket()
 
@@ -91,7 +99,8 @@ export abstract class WhatsappBaseService {
         }
 
         console.log(`Sending sticker to ${sticker.targetJid}`)
-        return this.sendMessage(sticker.targetJid, sticker.message, { quoted: message })
+        await this.sendMessage(sticker.targetJid, sticker.message, { quoted: message })
+        return true
     }
 
     async downloadViewOnce(message: WhatsappMessage) {
@@ -103,28 +112,20 @@ export abstract class WhatsappBaseService {
         }
 
         console.log(`Sending view once media to ${viewOnce.targetJid}`)
-        return this.sendMessage(viewOnce.targetJid, viewOnce.message, { quoted: message })
+        await this.sendMessage(viewOnce.targetJid, viewOnce.message, { quoted: message })
+        return true
     }
 
     async forwardViewOnce(message: WhatsappMessage) {
-        const forwardMessage = JSON.parse(JSON.stringify(message)) as WhatsappMessage
-        const viewOnce = forwardMessage?.message?.viewOnceMessage || forwardMessage?.message?.viewOnceMessageV2
-
-        if (!viewOnce || message.key.fromMe || !this.contactConnected.id) {
+        const forwardMessage = extractViewOnce(message)
+        if (!forwardMessage || message.key.fromMe || !this.contactConnected.id) {
             return false
         }
 
-        for (const key in viewOnce.message) {
-            const data = viewOnce.message[key]
-            if (data?.viewOnce) {
-                data.viewOnce = false
-            }
-        }
-        forwardMessage.message = viewOnce.message
-
         const targetJid = jidNormalizedUser(this.contactConnected.id)
         console.log(`Forward view once to ${targetJid}`)
-        return this.sendMessage(targetJid, { forward: forwardMessage }, { quoted: message })
+        await this.sendMessage(targetJid, { forward: forwardMessage }, { quoted: message })
+        return true
     }
 
     protected abstract removeSession(): Promise<void>
@@ -155,12 +156,12 @@ export abstract class WhatsappBaseService {
         content: AnyMessageContent,
         options?: MiscMessageGenerationOptions,
         recursive?: number,
-    ): Promise<boolean> {
+    ): Promise<WhatsappMessage> {
         try {
             this.checkIsConnected()
 
             // create 1 minute timeout for whatsapp send message
-            await promiseTimeout(1000 * 15, async (resolve, reject) => {
+            return await promiseTimeout(1000 * 15, async (resolve, reject) => {
                 try {
                     const jid = formatToJid(phoneNumber)
                     await this.socket.presenceSubscribe(jid)
@@ -169,14 +170,12 @@ export abstract class WhatsappBaseService {
                     await delay(3)
                     await this.socket.sendPresenceUpdate('paused', jid)
                     await delay(3)
-                    await this.socket.sendMessage(jid, content, options)
-                    resolve(true)
+                    const message = await this.socket.sendMessage(jid, content, options)
+                    resolve(message)
                 } catch (error) {
                     reject(error)
                 }
             })
-
-            return true
         } catch (error) {
             // check if can reload and the recursive not at maximum
             if (this.isShouldResend(error) && (recursive || 0) < 20) {
@@ -190,7 +189,7 @@ export abstract class WhatsappBaseService {
 
     protected abstract makeAuthState(): Promise<AuthState>
 
-    protected async createNewSocket(): Promise<WhatsappSocket> {
+    private async createNewSocket(): Promise<WhatsappSocket> {
         const { state, saveCreds } = await this.makeAuthState()
         const { version } = await fetchLatestBaileysVersion()
 
@@ -210,24 +209,44 @@ export abstract class WhatsappBaseService {
         return socket
     }
 
-    protected async onNewMessage(chats: { messages: WhatsappMessage[]; type: MessageUpsertType }) {
-        try {
-            const newMessageListeners = async (message: WhatsappMessage) => {
-                return await Promise.all([
-                    this.convertAndSendSticker(message),
-                    this.downloadViewOnce(message),
-                    // uncomment this if you want forward every view once come
-                    // this.forwardViewOnce(message),
-                ])
-            }
-
-            return await Promise.all(chats?.messages?.map(async message => newMessageListeners(message)))
-        } catch (error) {
-            console.error(error)
-        }
+    protected newMessageListeners = async (message: WhatsappMessage): Promise<boolean[]> => {
+        return await Promise.all([
+            this.convertAndSendSticker(message),
+            this.downloadViewOnce(message),
+            // uncomment this if you want forward every view once come
+            // this.forwardViewOnce(message),
+        ])
     }
 
-    protected async onConnectionUpdate(
+    private async onNewMessage(messages: { messages: WhatsappMessage[]; type: MessageUpsertType }) {
+        return Promise.all(
+            messages?.messages?.map(async message => {
+                try {
+                    await this.newMessageListeners(message)
+                } catch (error) {
+                    console.error(`new message listener error: ${error}`)
+                }
+            }),
+        )
+    }
+
+    protected updateMessageListeners = async (message: WhatsappMessageUpdate): Promise<boolean[]> => {
+        return await Promise.all([!!message])
+    }
+
+    private async onUpdateMessage(messages: WhatsappMessageUpdate[]) {
+        return Promise.all(
+            messages?.map(async message => {
+                try {
+                    await this.updateMessageListeners(message)
+                } catch (error) {
+                    console.error(`update message listener error: ${error}`)
+                }
+            }),
+        )
+    }
+
+    private async onConnectionUpdate(
         socket: WhatsappSocket,
         state: AuthenticationState,
         update: Partial<ConnectionState>,
@@ -261,24 +280,27 @@ export abstract class WhatsappBaseService {
             user.id = jidDecode(user?.id)?.user
 
             this.contactConnected = user
-            await socket.sendPresenceUpdate('unavailable')
             delete this.qrcode
 
             socket.ev.removeAllListeners('messages.upsert')
+            socket.ev.removeAllListeners('messages.update')
             socket.ev.on('messages.upsert', chats => this.onNewMessage(chats))
+            socket.ev.on('messages.update', chats => this.onUpdateMessage(chats))
+
+            await socket.sendPresenceUpdate('unavailable')
 
             console.log(`Whatsapp connected to ${user.id}`)
             return
         }
     }
 
-    protected checkIsConnected() {
+    private checkIsConnected() {
         const status = this.getStatus()
 
         if (!status.isConnected) throw new WhatsappError('Whatsapp not connected yet')
     }
 
-    protected isShouldResend(error: any): boolean {
+    private isShouldResend(error: any): boolean {
         if (error === 1006) return true
 
         const payload = error?.output?.payload

@@ -1,4 +1,4 @@
-import { jidNormalizedUser } from '@whiskeysockets/baileys'
+import { BufferJSON, jidNormalizedUser, proto } from '@whiskeysockets/baileys'
 import { WhatsappMessage } from 'src/whatsapp/interface'
 
 export function sanitizePhoneNumber(number: string) {
@@ -51,4 +51,59 @@ export function getCaptionAttribute(caption: string, attr: string): string {
 
     const attrRegex = new RegExp(`.*${attr}:`, 'g')
     return caption.split(attrRegex)[1]?.split('\n')[0]?.trim()
+}
+
+export function prepareDataToWrite<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value, BufferJSON.replacer))
+}
+
+export function prepareDataToRead<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value), BufferJSON.reviver)
+}
+
+export function extractViewOnce(message: WhatsappMessage): WhatsappMessage {
+    message = deepCopy(message)
+
+    const viewOnce = message?.message?.viewOnceMessage || message?.message?.viewOnceMessageV2
+    if (!viewOnce) {
+        return null
+    }
+
+    for (const key in viewOnce.message) {
+        const data = viewOnce.message[key]
+        if (data?.viewOnce) {
+            data.viewOnce = false
+        }
+    }
+    message.message = viewOnce.message
+
+    return message
+}
+
+export function parseTimeStamp(message: WhatsappMessage): string {
+    if (typeof message.messageTimestamp !== 'number') return ''
+
+    const date = new Date(message.messageTimestamp * 1000) // Multiply by 1000 to convert from seconds to milliseconds
+
+    const formattedDate = [
+        date.getDate().toString().padStart(2, '0'),
+        (date.getMonth() + 1).toString().padStart(2, '0'), // Months are zero-based
+        date.getFullYear(),
+    ].join('/')
+
+    const formattedTime = [
+        date.getHours().toString().padStart(2, '0'),
+        date.getMinutes().toString().padStart(2, '0'),
+        date.getSeconds().toString().padStart(2, '0'),
+    ].join(':')
+
+    return `${formattedDate} ${formattedTime}`
+}
+
+export function deepCopy<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value, BufferJSON.replacer), BufferJSON.reviver)
+}
+
+export function isValidMessageSend(key: proto.IMessageKey): boolean {
+    return key?.remoteJid?.endsWith('@s.whatsapp.net') || key?.remoteJid?.endsWith('@g.us')
 }
