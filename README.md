@@ -18,7 +18,11 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
     > Bot for downloading view once messages.
 
 4. View once forwarder Bot
+
     > Bot for forwarding view once messages to connected users.
+
+5. Deleted message forwarder Bot
+    > Bot for forwarding all deleted messages to connected users.
 
 ### Bot Triggers
 
