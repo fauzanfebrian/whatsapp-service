@@ -35,6 +35,9 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
 3. View once forwarder Bot
     - Every view once message that appears is immediately converted and sent to the authenticated user.
     - NB. This is not the default bot, you should update the code to run it.
+4. Deleted message forwarder
+    - Every deleted messages will be automatically forwarded to the authenticated user along with the original content.
+    - NB. This feature is exclusively supported with the database authentication method.
 
 ## Auth Method
 
