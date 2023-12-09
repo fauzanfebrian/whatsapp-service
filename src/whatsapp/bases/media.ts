@@ -118,10 +118,6 @@ export class MediaMessage {
     }
 
     private shouldConvertSticker(): boolean {
-        if (this.message?.key?.fromMe) {
-            return false
-        }
-
         this.checkQuotedMessage()
 
         const stickerMedia = MediaMessage.getMessageMedia(this.message.message)

@@ -91,6 +91,10 @@ export abstract class WhatsappBaseService {
     }
 
     async convertAndSendSticker(message: WhatsappMessage) {
+        if (formatToJid(message?.key?.remoteJid) === formatToJid(this.contactConnected.id)) {
+            return false
+        }
+
         const media = new MediaMessage(message)
 
         const sticker = await media.extractStickerMedia(`${this.serviceName} X ${message.pushName}`, this.serviceName)
