@@ -1,9 +1,10 @@
-import { proto } from '@whiskeysockets/baileys'
+import { jidNormalizedUser, proto } from '@whiskeysockets/baileys'
 import { AuthCredential } from 'src/auth/entities/credential'
 import datasource from 'src/db/datasource'
-import { Repository } from 'typeorm'
+import { QueryFailedError, Repository } from 'typeorm'
 import { Message } from '../entities/message'
 import { WhatsappMessage } from '../interface'
+import { sanitizePhoneNumber } from 'src/util/baileys'
 
 export class WhatsappMessageService {
     private messageRepository: Repository<Message>
@@ -17,24 +18,36 @@ export class WhatsappMessageService {
     }
 
     async createMessage(credential: AuthCredential, key: proto.IMessageKey, value: WhatsappMessage) {
-        return await this.messageRepository.save(
-            this.messageRepository.create({
-                credentialId: credential.id,
-                key: this.stringifyKey(credential, key),
-                value,
-            }),
-        )
+        try {
+            const senderJid = jidNormalizedUser(key.participant || key.remoteJid)
+
+            return await this.messageRepository.save(
+                this.messageRepository.create({
+                    credentialId: credential.id,
+                    key: this.stringifyKey(credential, key),
+                    value,
+                    sender: sanitizePhoneNumber(senderJid),
+                }),
+            )
+        } catch (error) {
+            if (error instanceof QueryFailedError) {
+                if (error.message.includes('duplicate key value violates unique constraint')) {
+                    return null
+                }
+            }
+            throw error
+        }
     }
 
     async getMessage(credential: AuthCredential, key: proto.IMessageKey): Promise<WhatsappMessage> {
-        const data = await this.messageRepository.findOne({
+        const message = await this.messageRepository.findOne({
             where: {
                 credentialId: credential.id,
                 key: this.stringifyKey(credential, key),
             },
         })
 
-        return data?.value || null
+        return message?.value || null
     }
 }
 

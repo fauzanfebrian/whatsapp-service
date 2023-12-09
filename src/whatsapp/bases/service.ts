@@ -15,7 +15,7 @@ import makeWASocket, {
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL } from 'src/config/config'
-import { formatToJid, sanitizePhoneNumber } from 'src/util/baileys'
+import { extractViewOnce, formatToJid, sanitizePhoneNumber } from 'src/util/baileys'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
 import {
     AuthState,
@@ -99,7 +99,8 @@ export abstract class WhatsappBaseService {
         }
 
         console.log(`Sending sticker to ${sticker.targetJid}`)
-        return this.sendMessage(sticker.targetJid, sticker.message, { quoted: message })
+        await this.sendMessage(sticker.targetJid, sticker.message, { quoted: message })
+        return true
     }
 
     async downloadViewOnce(message: WhatsappMessage) {
@@ -111,28 +112,20 @@ export abstract class WhatsappBaseService {
         }
 
         console.log(`Sending view once media to ${viewOnce.targetJid}`)
-        return this.sendMessage(viewOnce.targetJid, viewOnce.message, { quoted: message })
+        await this.sendMessage(viewOnce.targetJid, viewOnce.message, { quoted: message })
+        return true
     }
 
     async forwardViewOnce(message: WhatsappMessage) {
-        const forwardMessage = JSON.parse(JSON.stringify(message)) as WhatsappMessage
-        const viewOnce = forwardMessage?.message?.viewOnceMessage || forwardMessage?.message?.viewOnceMessageV2
-
-        if (!viewOnce || message.key.fromMe || !this.contactConnected.id) {
+        const forwardMessage = extractViewOnce(message)
+        if (!forwardMessage || message.key.fromMe || !this.contactConnected.id) {
             return false
         }
 
-        for (const key in viewOnce.message) {
-            const data = viewOnce.message[key]
-            if (data?.viewOnce) {
-                data.viewOnce = false
-            }
-        }
-        forwardMessage.message = viewOnce.message
-
         const targetJid = jidNormalizedUser(this.contactConnected.id)
         console.log(`Forward view once to ${targetJid}`)
-        return this.sendMessage(targetJid, { forward: forwardMessage }, { quoted: message })
+        await this.sendMessage(targetJid, { forward: forwardMessage }, { quoted: message })
+        return true
     }
 
     protected abstract removeSession(): Promise<void>
@@ -163,12 +156,12 @@ export abstract class WhatsappBaseService {
         content: AnyMessageContent,
         options?: MiscMessageGenerationOptions,
         recursive?: number,
-    ): Promise<boolean> {
+    ): Promise<WhatsappMessage> {
         try {
             this.checkIsConnected()
 
             // create 1 minute timeout for whatsapp send message
-            await promiseTimeout(1000 * 15, async (resolve, reject) => {
+            return await promiseTimeout(1000 * 15, async (resolve, reject) => {
                 try {
                     const jid = formatToJid(phoneNumber)
                     await this.socket.presenceSubscribe(jid)
@@ -177,14 +170,12 @@ export abstract class WhatsappBaseService {
                     await delay(3)
                     await this.socket.sendPresenceUpdate('paused', jid)
                     await delay(3)
-                    await this.socket.sendMessage(jid, content, options)
-                    resolve(true)
+                    const message = await this.socket.sendMessage(jid, content, options)
+                    resolve(message)
                 } catch (error) {
                     reject(error)
                 }
             })
-
-            return true
         } catch (error) {
             // check if can reload and the recursive not at maximum
             if (this.isShouldResend(error) && (recursive || 0) < 20) {

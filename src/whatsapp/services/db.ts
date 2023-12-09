@@ -1,21 +1,26 @@
 import { AuthenticationCreds, SignalDataSet, SignalDataTypeMap, initAuthCreds, proto } from '@whiskeysockets/baileys'
 import { AuthCredential } from 'src/auth/entities/credential'
 import authService from 'src/auth/service'
+import { extractViewOnce, formatToJid, parseTimeStamp, sanitizePhoneNumber } from 'src/util/baileys'
+import whatsappMessageService from '../bases/message'
 import { WhatsappBaseService } from '../bases/service'
-import { AuthState } from '../interface'
+import { AuthState, WhatsappMessage, WhatsappMessageUpdate } from '../interface'
 
 export class WhatsappServiceDBAuth extends WhatsappBaseService {
+    private credential: AuthCredential
+
     protected async makeAuthState(): Promise<AuthState> {
         const credential = await authService.getActiveCredential()
-
         const creds: AuthenticationCreds = credential?.value || initAuthCreds()
+
+        this.credential = credential
 
         return {
             state: {
                 creds,
                 keys: {
-                    get: (type, ids) => this.getStateData(credential, type, ids),
-                    set: data => this.setStateData(credential, data),
+                    get: (type, ids) => this.getStateData(type, ids),
+                    set: data => this.setStateData(data),
                 },
             },
             saveCreds: async () => {
@@ -24,12 +29,84 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
         }
     }
 
-    private fixKey(credential: AuthCredential, type: string, id: string) {
-        return Buffer.from(JSON.stringify({ credentialId: credential.id, type, id })).toString('base64')
+    protected async removeSession(): Promise<void> {
+        await authService.removeActiveCredential()
+    }
+
+    async saveMessage(message: WhatsappMessage) {
+        const jid = formatToJid(message?.key?.participant || message?.key?.remoteJid)
+
+        if (!jid || message.key.fromMe || !message.message || message.message.protocolMessage) {
+            return false
+        }
+
+        await whatsappMessageService.createMessage(this.credential, message.key, message)
+        return true
+    }
+
+    async sendDeletedMessage(key: proto.IMessageKey, recursive?: number): Promise<boolean> {
+        // set recursive set to 6 time because each recursive 5 second so in 30 seconds function will stop
+        if (recursive > 6) {
+            return false
+        }
+
+        const jid = formatToJid(key?.participant || key?.remoteJid)
+
+        if (key.fromMe || !jid) {
+            return false
+        }
+
+        const waMessage = await whatsappMessageService.getMessage(this.credential, key)
+        if (!waMessage) {
+            setTimeout(() => this.sendDeletedMessage(key, (recursive || 0) + 1), 1000 * 5)
+            return false
+        }
+
+        const forwardMessage = extractViewOnce(waMessage) || waMessage
+        const messageResult = await this.sendMessage(
+            this.contactConnected.id,
+            { forward: forwardMessage },
+            { quoted: waMessage },
+        )
+
+        const phoneNumber = sanitizePhoneNumber(jid)
+
+        const descriptions = [
+            'Deleted Message',
+            `phone: ${phoneNumber}`,
+            `name: ${waMessage.pushName}`,
+            parseTimeStamp(waMessage),
+        ].filter(Boolean)
+
+        await this.sendMessage(this.contactConnected.id, { text: descriptions.join('\n') }, { quoted: messageResult })
+        return true
+    }
+
+    protected newMessageListeners = async (message: WhatsappMessage): Promise<boolean[]> => {
+        return await Promise.all([
+            this.convertAndSendSticker(message),
+            this.downloadViewOnce(message),
+            this.saveMessage(message),
+            // uncomment this if you want forward every view once come
+            // this.forwardViewOnce(message),
+        ])
+    }
+
+    protected updateMessageListeners = async (message: WhatsappMessageUpdate): Promise<boolean[]> => {
+        const listeners = []
+
+        if (!message?.update?.message) {
+            listeners.push(this.sendDeletedMessage(message.key))
+        }
+
+        return await Promise.all(listeners)
+    }
+
+    private fixKey(type: string, id: string) {
+        return Buffer.from(JSON.stringify({ credentialId: this.credential.id, type, id })).toString('base64')
     }
 
     private async getStateData<T extends keyof SignalDataTypeMap>(
-        credential: AuthCredential,
         type: T,
         ids: string[],
     ): Promise<Record<string, SignalDataTypeMap[T]>> {
@@ -37,7 +114,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
 
         await Promise.all(
             ids.map(async id => {
-                let value = await authService.getStateValue(credential, this.fixKey(credential, type, id))
+                let value = await authService.getStateValue(this.credential, this.fixKey(type, id))
 
                 if (type === 'app-state-sync-key' && value) {
                     value = proto.Message.AppStateSyncKeyData.fromObject(value)
@@ -50,25 +127,21 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
         return data
     }
 
-    private async setStateData(credential: AuthCredential, data: SignalDataSet) {
+    private async setStateData(data: SignalDataSet) {
         const tasks: Promise<void>[] = []
 
         for (const type in data) {
             for (const id in data[type]) {
                 const value = data[type][id]
-                const key = this.fixKey(credential, type, id)
+                const key = this.fixKey(type, id)
                 tasks.push(
                     value
-                        ? authService.setStateValue(credential, key, value)
-                        : authService.removeStateValue(credential, key),
+                        ? authService.setStateValue(this.credential, key, value)
+                        : authService.removeStateValue(this.credential, key),
                 )
             }
         }
 
         await Promise.all(tasks)
-    }
-
-    protected async removeSession(): Promise<void> {
-        await authService.removeActiveCredential()
     }
 }
