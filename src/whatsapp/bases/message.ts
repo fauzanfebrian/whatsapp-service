@@ -1,10 +1,10 @@
 import { jidNormalizedUser, proto } from '@whiskeysockets/baileys'
 import { AuthCredential } from 'src/auth/entities/credential'
 import datasource from 'src/db/datasource'
+import { sanitizePhoneNumber } from 'src/util/baileys'
 import { QueryFailedError, Repository } from 'typeorm'
 import { Message } from '../entities/message'
 import { WhatsappMessage } from '../interface'
-import { sanitizePhoneNumber } from 'src/util/baileys'
 
 export class WhatsappMessageService {
     private messageRepository: Repository<Message>
@@ -48,6 +48,18 @@ export class WhatsappMessageService {
         })
 
         return message?.value || null
+    }
+
+    async deleteMessage(credential: AuthCredential, key: proto.IMessageKey): Promise<boolean> {
+        const res = await this.messageRepository.update(
+            {
+                credentialId: credential.id,
+                key: this.stringifyKey(credential, key),
+                isDeleted: false,
+            },
+            { isDeleted: true },
+        )
+        return !!res?.affected
     }
 }
 

@@ -65,9 +65,9 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
     }
 
     async sendDeletedMessage(key: proto.IMessageKey, recursive?: number): Promise<boolean> {
-        // set recursive set to 6 time because each recursive 5 second so in 30 seconds function will stop
         const jid = formatToJid(key?.participant || key?.remoteJid)
 
+        // set recursive set to 6 time because each recursive 5 second so in 30 seconds function will stop
         if (recursive > 6 || !isValidMessageSend(key) || !jid || key.fromMe) {
             return false
         }
@@ -95,6 +95,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
         ].filter(Boolean)
 
         await this.sendMessage(this.contactConnected.id, { text: descriptions.join('\n') }, { quoted: messageResult })
+        await whatsappMessageService.deleteMessage(this.credential, key)
         return true
     }
 

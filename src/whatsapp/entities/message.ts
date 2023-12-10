@@ -34,6 +34,9 @@ export class Message {
     @Column()
     sender: string
 
+    @Column({ default: false })
+    isDeleted: boolean
+
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date
 
