@@ -1,7 +1,7 @@
 import makeWASocket, {
+    AnyMessageContent,
     AuthenticationState,
     Contact,
-    WAMediaUpload,
     WAMessageUpdate,
     proto,
 } from '@whiskeysockets/baileys'
@@ -39,10 +39,7 @@ export interface AuthState {
 }
 
 export interface ExtractStickerMediaData {
-    message: {
-        sticker: WAMediaUpload
-        isAnimated?: boolean
-    }
+    message: AnyMessageContent
     targetJid: string
 }
 

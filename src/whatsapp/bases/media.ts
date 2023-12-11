@@ -1,4 +1,4 @@
-import { downloadMediaMessage } from '@whiskeysockets/baileys'
+import { downloadMediaMessage, proto } from '@whiskeysockets/baileys'
 import { BOT_PASSWORD } from 'src/config/config'
 import { deepCopy, extractJidFromMessage, getCaptionAttribute } from 'src/util/baileys'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
@@ -54,15 +54,30 @@ export class MediaMessage {
 
         const media = await downloadMediaMessage(this.message, 'buffer', {})
 
-        const sticker = new Sticker(media as Buffer, {
-            quality: 50,
+        const sticker = await this.convertSticker(media as Buffer, pack, author)
+        if (!sticker) {
+            return null
+        }
+
+        return { targetJid, message: { sticker } }
+    }
+
+    private async convertSticker(buffer: Buffer, pack: string, author?: string): Promise<Buffer> {
+        const { type } = MediaMessage.getMessageMedia(this.message.message)
+
+        const sticker = new Sticker(buffer, {
+            quality: type === 'video' ? 15 : 50,
             type: StickerTypes.CROPPED,
             author,
             pack,
         })
-        const buffer = await sticker.toBuffer()
 
-        return { targetJid, message: { sticker: buffer } }
+        const media = await sticker.toBuffer()
+        if (type === 'image' || media.length < 1024 * 1000) {
+            return media
+        }
+
+        return null
     }
 
     async extractViewOnceMedia(): Promise<ExtractViewOnceMediaData> {
@@ -122,7 +137,7 @@ export class MediaMessage {
 
         const stickerMedia = MediaMessage.getMessageMedia(this.message.message)
 
-        if (stickerMedia?.type !== 'image' || stickerMedia?.viewOnce) {
+        if (stickerMedia?.viewOnce || (stickerMedia?.media as proto.Message.IVideoMessage)?.seconds > 10) {
             return false
         }
 
