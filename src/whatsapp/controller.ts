@@ -2,7 +2,7 @@ import { Handler } from 'express'
 import QRCode from 'qrcode'
 import { HttpStatus } from 'src/util/http-status'
 import { responseJson } from 'src/util/response'
-import { joiValidate } from 'src/util/validator'
+import { joiValidate, joiValidateString } from 'src/util/validator'
 import whatsappService from './service'
 import { sendContactValidator, sendFileValidator, sendLocationValidator, sendTextValidator } from './validator/message'
 
@@ -91,6 +91,22 @@ export const sendImage: Handler = async (req, res, next) => {
         })
 
         const data = await whatsappService.sendFile(dto)
+        return responseJson(res, data)
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getGroupData: Handler = async (req, res, next) => {
+    try {
+        const id = await joiValidateString(req.params.id)
+
+        const data = await whatsappService.groupData(id)
+
+        if (!data) {
+            return responseJson(res, 'not found', HttpStatus.NotFound)
+        }
+
         return responseJson(res, data)
     } catch (error) {
         next(error)

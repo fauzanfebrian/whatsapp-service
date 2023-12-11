@@ -1,6 +1,8 @@
 import makeWASocket, {
     AuthenticationState,
     Contact,
+    GroupMetadata,
+    GroupParticipant as GroupParti,
     WAMediaUpload,
     WAMessageUpdate,
     proto,
@@ -61,3 +63,11 @@ export interface ValueMessageMedia {
 }
 
 export type NewMessageListener = (message: WhatsappMessage) => Promise<any>
+
+export interface GroupParticipant extends GroupParti {
+    photoUrl?: string
+}
+
+export interface GroupData extends GroupMetadata {
+    participants: GroupParticipant[]
+}

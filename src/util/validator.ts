@@ -16,3 +16,14 @@ export async function joiValidateNumber(val: any): Promise<number> {
 
     return val
 }
+
+export async function joiValidateString(val: any): Promise<string> {
+    const schema = Joi.object({
+        val: Joi.string().required(),
+    })
+    await schema.validateAsync({
+        val,
+    })
+
+    return `${val}`
+}

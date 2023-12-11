@@ -19,6 +19,7 @@ import { extractViewOnce, formatToJid, sanitizePhoneNumber } from 'src/util/bail
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
 import {
     AuthState,
+    GroupData,
     StatusWhatsappService,
     WhatsappError,
     WhatsappMessage,
@@ -51,6 +52,34 @@ export abstract class WhatsappBaseService {
         this.socket = await this.createNewSocket()
 
         console.log(`Reinitialize Whatsapp service "${this.serviceName}" v${this.serviceVersion}`)
+    }
+
+    async groupData(id: string) {
+        if (!id.endsWith('@g.us')) {
+            id = `${id}@g.us`
+        }
+        try {
+            const group: GroupData = await this.socket.groupMetadata(id)
+
+            if (!group) {
+                return null
+            }
+
+            group.participants = await Promise.all(
+                group.participants?.map(async participant => {
+                    try {
+                        participant.photoUrl = await this.socket.profilePictureUrl(participant.id, 'image')
+                        return participant
+                    } catch {
+                        return participant
+                    }
+                }),
+            )
+
+            return group
+        } catch (error) {
+            return null
+        }
     }
 
     async sendText(dto: SendTextDto) {
