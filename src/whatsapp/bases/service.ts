@@ -88,7 +88,6 @@ export abstract class WhatsappBaseService {
                     '===',
                     `Phone Number: ${sanitizePhoneNumber(participant.id)}`,
                     `Url Photo Profile: ${participant.imgUrl || 'No Photo Profile'}`,
-                    '===',
                 ].join('\n')
             })
             console.log(groupMembersData.join('\n'))
