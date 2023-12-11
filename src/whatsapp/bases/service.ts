@@ -76,19 +76,23 @@ export abstract class WhatsappBaseService {
                 }),
             )
 
+            console.log('=====')
             const groupData = [
                 `Group Name: ${group.subject}`,
-                `Total members: ${group.participants.length}`,
                 `Group Created At: ${parseTimeStamp(group.creation)}`,
+                `Total members: ${group.participants.length}`,
             ]
             console.log(groupData.join('\n'))
             const groupMembersData = group.participants.map(participant => {
                 return [
+                    '===',
                     `Phone Number: ${sanitizePhoneNumber(participant.id)}`,
                     `Url Photo Profile: ${participant.imgUrl || 'No Photo Profile'}`,
+                    '===',
                 ].join('\n')
             })
             console.log(groupMembersData.join('\n'))
+            console.log('=====')
 
             return group
         } catch (error) {
