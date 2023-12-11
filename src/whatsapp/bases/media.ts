@@ -65,8 +65,21 @@ export class MediaMessage {
     private async convertSticker(buffer: Buffer, pack: string, author?: string): Promise<Buffer> {
         const { type } = MediaMessage.getMessageMedia(this.message.message)
 
+        const getQuality = () => {
+            if (type === 'image') {
+                return 50
+            }
+            if (buffer.length < 500 * 1024) {
+                return 50
+            }
+            if (buffer.length < 1500 * 1024) {
+                return 20
+            }
+            return 10
+        }
+
         const sticker = new Sticker(buffer, {
-            quality: type === 'video' ? 15 : 50,
+            quality: getQuality(),
             type: StickerTypes.CROPPED,
             author,
             pack,
