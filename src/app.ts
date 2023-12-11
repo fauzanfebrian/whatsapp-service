@@ -1,8 +1,8 @@
 import express from 'express'
-import sendRouter from './router/send'
+import authRouter from './auth/router'
 import { errorHandler } from './util/handler'
 import { getGroupData, logout, printQR, status } from './whatsapp/controller'
-import authRouter from './auth/router'
+import whatsappRouter from './whatsapp/router'
 
 const app = express()
 
@@ -14,7 +14,7 @@ app.delete('/logout', logout)
 
 app.get('/group/:id', getGroupData)
 
-app.use('/send', sendRouter)
+app.use('/send', whatsappRouter)
 app.use('/auth', authRouter)
 
 app.use(errorHandler)

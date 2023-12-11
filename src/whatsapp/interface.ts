@@ -1,9 +1,9 @@
 import makeWASocket, {
+    AnyMessageContent,
     AuthenticationState,
     Contact,
     GroupMetadata,
-    GroupParticipant as GroupParti,
-    WAMediaUpload,
+    GroupParticipant as GroupMember,
     WAMessageUpdate,
     proto,
 } from '@whiskeysockets/baileys'
@@ -41,10 +41,7 @@ export interface AuthState {
 }
 
 export interface ExtractStickerMediaData {
-    message: {
-        sticker: WAMediaUpload
-        isAnimated?: boolean
-    }
+    message: AnyMessageContent
     targetJid: string
 }
 
@@ -64,7 +61,7 @@ export interface ValueMessageMedia {
 
 export type NewMessageListener = (message: WhatsappMessage) => Promise<any>
 
-export interface GroupParticipant extends GroupParti {
+export interface GroupParticipant extends GroupMember {
     photoUrl?: string
 }
 

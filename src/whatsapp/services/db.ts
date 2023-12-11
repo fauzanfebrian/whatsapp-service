@@ -87,8 +87,11 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
 
         const phoneNumber = sanitizePhoneNumber(jid)
 
+        const isGroupMessage = isJidGroup(key.remoteJid)
+        const group = isGroupMessage ? await this.socket.groupMetadata(key.remoteJid) : null
         const descriptions = [
-            isJidGroup(key.remoteJid) ? 'Deleted Group Message' : 'Deleted Message',
+            isGroupMessage ? 'Deleted Group Message' : 'Deleted Message',
+            isGroupMessage ? `group: ${group.subject} (${group.participants?.length} members)` : '',
             `phone: ${phoneNumber}`,
             `name: ${waMessage.pushName}`,
             parseTimeStamp(waMessage),
