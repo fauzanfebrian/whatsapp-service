@@ -60,12 +60,13 @@ export abstract class WhatsappBaseService {
     async sendContact(dto: SendContactDto) {
         const waid = sanitizePhoneNumber(dto.phoneNumber)
 
-        const vcard =
-            'BEGIN:VCARD\n' +
-            'VERSION:3.0\n' +
-            `FN:${dto.name}\n` +
-            `TEL;type=CELL;type=VOICE;waid=${waid}:${dto.phoneNumber}\n` +
-            'END:VCARD'
+        const vcard = [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            `FN:${dto.name}`,
+            `TEL;type=CELL;type=VOICE;waid=${waid}:${dto.phoneNumber}`,
+            'END:VCARD',
+        ].join('\n')
 
         return this.sendMessage(dto.sendTo, {
             contacts: {
