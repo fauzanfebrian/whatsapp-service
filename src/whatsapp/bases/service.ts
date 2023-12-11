@@ -15,7 +15,7 @@ import makeWASocket, {
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL } from 'src/config/config'
-import { extractViewOnce, formatToJid, sanitizePhoneNumber } from 'src/util/baileys'
+import { extractViewOnce, formatToJid, parseTimeStamp, sanitizePhoneNumber } from 'src/util/baileys'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
 import {
     AuthState,
@@ -68,13 +68,27 @@ export abstract class WhatsappBaseService {
             group.participants = await Promise.all(
                 group.participants?.map(async participant => {
                     try {
-                        participant.photoUrl = await this.socket.profilePictureUrl(participant.id, 'image')
+                        participant.imgUrl = await this.socket.profilePictureUrl(participant.id, 'image')
                         return participant
                     } catch {
                         return participant
                     }
                 }),
             )
+
+            const groupData = [
+                `Group Name: ${group.subject}`,
+                `Total members: ${group.participants.length}`,
+                `Group Created At: ${parseTimeStamp(group.creation)}`,
+            ]
+            console.log(groupData.join('\n'))
+            const groupMembersData = group.participants.map(participant => {
+                return [
+                    `Phone Number: ${sanitizePhoneNumber(participant.id)}`,
+                    `Url Photo Profile: ${participant.imgUrl || 'No Photo Profile'}`,
+                ].join('\n')
+            })
+            console.log(groupMembersData.join('\n'))
 
             return group
         } catch (error) {

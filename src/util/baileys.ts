@@ -80,10 +80,10 @@ export function extractViewOnce(message: WhatsappMessage): WhatsappMessage {
     return message
 }
 
-export function parseTimeStamp(message: WhatsappMessage): string {
-    if (typeof message.messageTimestamp !== 'number') return ''
+export function parseTimeStamp(timestamp: number): string {
+    if (typeof timestamp !== 'number') return ''
 
-    const date = new Date(message.messageTimestamp * 1000) // Multiply by 1000 to convert from seconds to milliseconds
+    const date = new Date(timestamp * 1000) // Multiply by 1000 to convert from seconds to milliseconds
 
     const formattedDate = [
         date.getDate().toString().padStart(2, '0'),

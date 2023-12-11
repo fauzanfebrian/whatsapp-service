@@ -94,7 +94,7 @@ export class WhatsappServiceDBAuth extends WhatsappBaseService {
             isGroupMessage ? `group: ${group.subject} (${group.participants?.length} members)` : '',
             `phone: ${phoneNumber}`,
             `name: ${waMessage.pushName}`,
-            parseTimeStamp(waMessage),
+            parseTimeStamp(waMessage.messageTimestamp as number),
         ].filter(Boolean)
 
         await this.sendMessage(this.contactConnected.id, { text: descriptions.join('\n') }, { quoted: messageResult })

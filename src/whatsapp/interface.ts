@@ -61,9 +61,7 @@ export interface ValueMessageMedia {
 
 export type NewMessageListener = (message: WhatsappMessage) => Promise<any>
 
-export interface GroupParticipant extends GroupMember {
-    photoUrl?: string
-}
+export type GroupParticipant = GroupMember
 
 export interface GroupData extends GroupMetadata {
     participants: GroupParticipant[]
