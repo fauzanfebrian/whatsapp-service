@@ -79,9 +79,9 @@ export const sendLocation: Handler = async (req, res, next) => {
     }
 }
 
-export const sendImage: Handler = async (req, res, next) => {
+export const sendFile: Handler = async (req, res, next) => {
     try {
-        const file: (typeof req)['file'] = req.files['file']?.[0]
+        const file: Express.Multer.File = req.files['file']?.[0]
 
         const dto = await joiValidate(sendFileValidator, {
             file: file?.buffer,
@@ -91,6 +91,24 @@ export const sendImage: Handler = async (req, res, next) => {
         })
 
         const data = await whatsappService.sendFile(dto)
+        return responseJson(res, data)
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const sendImage: Handler = async (req, res, next) => {
+    try {
+        const file: Express.Multer.File = req.files['file']?.[0]
+
+        const dto = await joiValidate(sendFileValidator, {
+            file: file?.buffer,
+            fileName: file?.originalname,
+            mimetype: file?.mimetype,
+            ...req.body,
+        })
+
+        const data = await whatsappService.sendImage(dto)
         return responseJson(res, data)
     } catch (error) {
         next(error)

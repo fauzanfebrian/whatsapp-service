@@ -91,6 +91,13 @@ export abstract class WhatsappBaseService {
         })
     }
 
+    async sendImage(dto: SendFileDto) {
+        return this.sendMessage(dto.sendTo, {
+            image: dto.file,
+            caption: dto.caption,
+        })
+    }
+
     async convertAndSendSticker(message: WhatsappMessage) {
         if (formatToJid(message?.key?.remoteJid) === formatToJid(this.contactConnected.id)) {
             return false
