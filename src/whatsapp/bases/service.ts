@@ -15,7 +15,7 @@ import makeWASocket, {
 import { pino } from 'pino'
 import QRCodeTerminal from 'qrcode-terminal'
 import { QR_TERMINAL } from 'src/config/config'
-import { extractViewOnce, formatToJid, parseTimeStamp, sanitizePhoneNumber } from 'src/util/baileys'
+import { extractViewOnce, formatToJid, sanitizePhoneNumber } from 'src/util/baileys'
 import { SendContactDto, SendFileDto, SendLocationDto, SendTextDto } from '../dto/message.dto'
 import {
     AuthState,
@@ -75,23 +75,6 @@ export abstract class WhatsappBaseService {
                     }
                 }),
             )
-
-            console.log('=====')
-            const groupData = [
-                `Group Name: ${group.subject}`,
-                `Group Created At: ${parseTimeStamp(group.creation)}`,
-                `Total members: ${group.participants.length}`,
-            ]
-            console.log(groupData.join('\n'))
-            const groupMembersData = group.participants.map(participant => {
-                return [
-                    '===',
-                    `Phone Number: ${sanitizePhoneNumber(participant.id)}`,
-                    `Url Photo Profile: ${participant.imgUrl || 'No Photo Profile'}`,
-                ].join('\n')
-            })
-            console.log(groupMembersData.join('\n'))
-            console.log('=====')
 
             return group
         } catch (error) {
@@ -263,6 +246,8 @@ export abstract class WhatsappBaseService {
 
         socket.ev.on('connection.update', update => this.onConnectionUpdate(socket, state, update))
         socket.ev.on('creds.update', saveCreds)
+        socket.ev.on('messages.upsert', chats => this.onNewMessage(chats))
+        socket.ev.on('messages.update', chats => this.onUpdateMessage(chats))
 
         return socket
     }
@@ -328,26 +313,21 @@ export abstract class WhatsappBaseService {
                 console.log('Whatsapp logged out')
             }
 
-            console.log(`Connection close: ${statusCode}`)
+            console.log(`Connection close: ${lastDisconnect?.error}`)
             await this.reInitialize()
             return
         }
 
         if (connection === 'open') {
-            const user = { ...state.creds.me }
-            user.id = jidDecode(user?.id)?.user
-
-            this.contactConnected = user
+            this.contactConnected = {
+                ...state.creds.me,
+                id: jidDecode(state.creds.me?.id)?.user,
+            }
             delete this.qrcode
-
-            socket.ev.removeAllListeners('messages.upsert')
-            socket.ev.removeAllListeners('messages.update')
-            socket.ev.on('messages.upsert', chats => this.onNewMessage(chats))
-            socket.ev.on('messages.update', chats => this.onUpdateMessage(chats))
 
             await socket.sendPresenceUpdate('unavailable')
 
-            console.log(`Whatsapp connected to ${user.id}`)
+            console.log(`Whatsapp connected to ${this.contactConnected.id}`)
             return
         }
     }
