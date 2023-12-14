@@ -206,11 +206,11 @@ export abstract class WhatsappBaseService {
                 try {
                     const jid = formatToJid(phoneNumber)
                     await this.socket.presenceSubscribe(jid)
-                    await delay(3)
+                    await delay(1 * 1000)
                     await this.socket.sendPresenceUpdate('composing', jid)
-                    await delay(3)
+                    await delay(2 * 1000)
                     await this.socket.sendPresenceUpdate('paused', jid)
-                    await delay(3)
+                    await delay(1 * 1000)
                     const message = await this.socket.sendMessage(jid, content, options)
                     resolve(message)
                 } catch (error) {
@@ -313,8 +313,10 @@ export abstract class WhatsappBaseService {
                 console.log('Whatsapp logged out')
             }
 
-            console.log(`Connection close: ${lastDisconnect?.error}`)
-            await this.reInitialize()
+            console.log(`Connection close (${statusCode}): ${lastDisconnect?.error}`)
+            if (statusCode !== 403) {
+                await this.reInitialize()
+            }
             return
         }
 
