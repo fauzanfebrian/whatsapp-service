@@ -1,4 +1,5 @@
 import { BufferJSON, jidNormalizedUser, proto } from '@whiskeysockets/baileys'
+import { createHash } from 'crypto'
 import { WhatsappMessage } from 'src/whatsapp/interface'
 
 export function sanitizePhoneNumber(number: string) {
@@ -106,4 +107,10 @@ export function deepCopy<T>(value: T): T {
 
 export function isValidMessageSend(key: proto.IMessageKey): boolean {
     return key?.remoteJid?.endsWith('@s.whatsapp.net') || key?.remoteJid?.endsWith('@g.us')
+}
+
+export function bufferId(buffer: Buffer): string {
+    const hash = createHash('sha256')
+    hash.update(buffer)
+    return hash.digest('hex')
 }

@@ -1,6 +1,6 @@
 import { downloadMediaMessage, proto } from '@whiskeysockets/baileys'
 import { BOT_PASSWORD } from 'src/config/config'
-import { deepCopy, extractJidFromMessage, getCaptionAttribute } from 'src/util/baileys'
+import { bufferId, deepCopy, extractJidFromMessage, getCaptionAttribute } from 'src/util/baileys'
 import Sticker, { StickerTypes } from 'wa-sticker-formatter'
 import {
     ExtractStickerMediaData,
@@ -83,6 +83,7 @@ export class MediaMessage {
             type: StickerTypes.CROPPED,
             author,
             pack,
+            id: bufferId(buffer),
         })
 
         const media = await sticker.toBuffer()
