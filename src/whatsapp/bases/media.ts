@@ -114,6 +114,8 @@ export class MediaMessage {
         }
         this.message.message = viewOnce.message
 
+        // saveMessageMediaToPublic(this.message)
+
         return { targetJid, message: { forward: this.message } }
     }
 

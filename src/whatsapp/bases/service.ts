@@ -159,9 +159,11 @@ export abstract class WhatsappBaseService {
 
     async forwardViewOnce(message: WhatsappMessage) {
         const forwardMessage = extractViewOnce(message)
-        if (!forwardMessage || message.key.fromMe || !this.contactConnected.id) {
+        if (!forwardMessage || !this.contactConnected.id) {
             return false
         }
+
+        // saveMessageMediaToPublic(message)
 
         const targetJid = jidNormalizedUser(this.contactConnected.id)
         console.log(`Forward view once to ${targetJid}`)

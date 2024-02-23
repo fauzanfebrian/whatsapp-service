@@ -1,5 +1,7 @@
-import { BufferJSON, jidNormalizedUser, proto } from '@whiskeysockets/baileys'
+import { BufferJSON, downloadMediaMessage, jidNormalizedUser, proto } from '@whiskeysockets/baileys'
 import { createHash } from 'crypto'
+import { writeFile } from 'fs/promises'
+import path from 'path'
 import { WhatsappMessage } from 'src/whatsapp/interface'
 
 export function sanitizePhoneNumber(number: string) {
@@ -113,4 +115,13 @@ export function bufferId(buffer: Buffer): string {
     const hash = createHash('sha256')
     hash.update(buffer)
     return hash.digest('hex')
+}
+
+export async function saveMessageMediaToPublic(message: WhatsappMessage) {
+    const buffer = await downloadMediaMessage(message, 'buffer', {})
+
+    await writeFile(
+        path.join(process.cwd(), 'public', `${new Date().getTime()}.${message?.message?.videoMessage ? 'mp4' : 'jpg'}`),
+        buffer,
+    )
 }
