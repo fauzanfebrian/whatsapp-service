@@ -33,7 +33,10 @@ export abstract class WhatsappBaseService {
     protected socket: WhatsappSocket
     protected qrcode: string
 
-    constructor(protected serviceName = 'Whatsapp Service', protected serviceVersion = '0.0.1') {}
+    constructor(
+        protected serviceName = 'Whatsapp Service',
+        protected serviceVersion = '0.0.1',
+    ) {}
 
     async initialize() {
         if (this.socket) {

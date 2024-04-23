@@ -32,9 +32,9 @@ This service use <a href="https://github.com/WhiskeySockets/Baileys" target="_bl
     - Every WhatsApp image message replied with the caption `#sticker` or `#convert_sticker`. The bot then immediately
       converts and sends it to the sender.
 2. View once downloader Bot
-    - Every WhatsApp view once message appears with the caption `#download_view_once`. The bot then immediately converts
+    - Every WhatsApp view once message appears with the caption `#dvo`. The bot then immediately converts
       and sends it to the
-    - Every WhatsApp view once message replied with the caption `#download_view_once`. The bot then immediately converts
+    - Every WhatsApp view once message replied with the caption `#dvo`. The bot then immediately converts
       and sends it to the sender.
 3. View once forwarder Bot
     - Every view once message that appears is immediately converted and sent to the authenticated user.

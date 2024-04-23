@@ -180,7 +180,7 @@ export class MediaMessage {
 
         const baseCaption = this.message?.quoted?.message || viewOnceMedia?.media?.caption
         const caption = baseCaption?.trim?.()
-        if (!caption?.toLowerCase()?.startsWith('#download_view_once')) {
+        if (!caption?.toLowerCase()?.startsWith('#dvo')) {
             return false
         }
 
